@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonia - App de Louvor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app-container">
+        <header class="main-header">
+            <div class="logo">
+                <h1><i class="fas fa-music"></i> HARMONIA</h1>
+                <p>GRUPO DE LOUVOR</p>
+            </div>
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Buscar hino ou artista...">
+            </div>
+        </header>
+
+        <nav class="category-nav">
+            <button class="cat-btn active">TODOS</button>
+            <button class="cat-btn">ADORAÇÃO</button>
+            <button class="cat-btn">CELEBRAÇÃO</button>
+            <button class="cat-btn">SETLIST</button>
+        </nav>
+
+        <main class="song-list" id="songList">
+            
+            <div class="song-card" onclick="verHino('ele-e')">
+                <div class="song-main">
+                    <div class="song-icon"><i class="fas fa-play-circle"></i></div>
+                    <div class="song-details">
+                        <h3>É ELE</h3>
+                        <p>Marine Friesen</p>
+                    </div>
+                </div>
+                <div class="song-badge">TOM: G</div>
+            </div>
+
+            <div class="song-card" onclick="verHino('eu-quero-adorar')">
+                <div class="song-main">
+                    <div class="song-icon"><i class="fas fa-play-circle"></i></div>
+                    <div class="song-details">
+                        <h3>EU SÓ QUERO ADORAR</h3>
+                        <p>David Quinlan</p>
+                    </div>
+                </div>
+                <div class="song-badge">TOM: D</div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function verHino(id) {
+            // Futuramente abrirá a página da letra
+            console.log("Abrindo: " + id);
+        }
+    </script>
+</body>
+</html>

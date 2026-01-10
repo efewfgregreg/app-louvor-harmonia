@@ -1,0 +1,99 @@
+:root {
+    --bg-color: #181a1b;
+    --surface-color: #2c2f33;
+    --primary-color: #00bcd4;
+    --text-color: #e6e6e6;
+    --font-headings: 'Oswald', sans-serif;
+    --font-body: 'Nunito Sans', sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-body);
+    margin: 0;
+    padding: 0;
+}
+
+.main-header {
+    background: #111;
+    padding: 30px 20px;
+    text-align: center;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.logo h1 {
+    font-family: var(--font-headings);
+    color: var(--primary-color);
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+.search-bar {
+    background: var(--surface-color);
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.search-bar input {
+    background: transparent;
+    border: none;
+    color: white;
+    width: 100%;
+    outline: none;
+}
+
+.category-nav {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.cat-btn {
+    background: var(--surface-color);
+    color: white;
+    border: 1px solid var(--primary-color);
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-family: var(--font-headings);
+    cursor: pointer;
+}
+
+.cat-btn.active {
+    background: var(--primary-color);
+    color: #111;
+}
+
+.song-card {
+    background: var(--surface-color);
+    margin: 10px 20px;
+    padding: 15px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.song-card:hover { border: 1px solid var(--primary-color); }
+
+.song-main { display: flex; align-items: center; gap: 15px; }
+
+.song-icon { color: var(--primary-color); font-size: 1.5rem; }
+
+.song-details h3 { margin: 0; font-family: var(--font-headings); }
+
+.song-badge {
+    background: rgba(0, 188, 212, 0.2);
+    color: var(--primary-color);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
