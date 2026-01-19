@@ -343,7 +343,7 @@
                 db = firebase.database().ref('usuarios/' + user.uid + '/repertorio');
                 db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(); });
                 firebase.database().ref(`usuarios/${user.uid}/configuracoes/categorias`).on('value', (snap) => {
-                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "celebracao": { nome: "CELEBRAÇÃO", fixada: true } };
+                    categoriasUsuario = snap.val() ||  };
                     renderizarAbas(); atualizarSelectCategorias();
                 });
                 if(localStorage.getItem('tema_cor')) mudarTema(localStorage.getItem('tema_cor'));
@@ -563,4 +563,5 @@
         function atualizarDisplayBPM(h){if(metronomoAtivo)toggleMetronomo();const d=document.getElementById('display-bpm');if(h&&h.bpm){d.innerText=h.bpm+" BPM";}else{d.innerText="-- BPM";}}
     </script>
 </body>
+
 </html>
