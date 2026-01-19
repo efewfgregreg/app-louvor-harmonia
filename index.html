@@ -343,13 +343,12 @@
                 db = firebase.database().ref('usuarios/' + user.uid + '/repertorio');
                 db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(); });
                 firebase.database().ref(`usuarios/${user.uid}/configuracoes/categorias`).on('value', (snap) => {
-                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true } };
+                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "santa ceia": { nome: "SANTA CEIA", fixada: true } };
                     renderizarAbas(); atualizarSelectCategorias();
                 });
                 if(localStorage.getItem('tema_cor')) mudarTema(localStorage.getItem('tema_cor'));
             } else { window.location.href = 'login.html'; }
         });
-
         // --- MODO ENSAIO (Loop e Velocidade) ---
         function toggleEnsaioPanel() {
             const p = document.getElementById('ensaio-panel');
@@ -565,4 +564,5 @@
 </body>
 
 </html>
+
 
