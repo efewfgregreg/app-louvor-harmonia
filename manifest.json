@@ -1,16 +1,18 @@
 {
-  "name": "Harmonia Louvor",
+  "name": "Harmonia",
   "short_name": "Harmonia",
   "description": "Gestão de Repertório e Escalas",
-  "start_url": "index.html",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111314",
+  "background_color": "#000000",
   "theme_color": "#00bcd4",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3293/3293810.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "icon.png",
+      "sizes": "515x515",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
