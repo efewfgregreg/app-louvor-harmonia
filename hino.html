@@ -3,45 +3,442 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizar Hino - Harmonia</title>
+    <title>Harmonia - Palco Pro</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* --- ESTRUTURA GERAL (VISUAL CLASSICO RESTAURADO) --- */
+        body { 
+            overflow: hidden; background: #000; color: #fff; height: 100vh; margin: 0; font-family: 'Nunito Sans', sans-serif;
+        }
+
+        /* Fundo Original "Working Version" */
+        .aurora-bg {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            background: radial-gradient(circle at 50% 100%, #111 0%, #000 90%); 
+            z-index: -1;
+        }
+
+        #stage-container { display: flex; flex-direction: column; height: 100vh; position: relative; }
+
+        /* HEADER */
+        .stage-header {
+            display: flex; align-items: center; justify-content: space-between; padding: 20px 30px; z-index: 100;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); position: absolute; top:0; width: 100%; box-sizing: border-box;
+        }
+        .header-info h2 { margin: 0; font-family: 'Oswald'; text-transform: uppercase; letter-spacing: 2px; font-size: 1.4rem; color: #fff; text-shadow: 0 0 10px rgba(0,188,212,0.5); }
+
+        /* --- ÁREA DA LETRA --- */
+        #lyrics-area {
+            flex: 1; height: 100vh; position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* MODO SCROLL - Estilo Original */
+        .mode-scroll {
+            display: block !important; overflow-y: auto !important; text-align: center;
+            -webkit-mask-image: linear-gradient(transparent 5%, black 20%, black 80%, transparent 95%);
+            mask-image: linear-gradient(transparent 5%, black 20%, black 80%, transparent 95%);
+            padding: 50vh 20px; box-sizing: border-box; scrollbar-width: none;
+        }
+        .mode-scroll::-webkit-scrollbar { display: none; }
+        
+        .lyric-line {
+            line-height: 1.4; font-weight: 800; color: rgba(255,255,255,0.2); /* Inativo escuro */
+            transition: all 0.4s ease; margin-bottom: 30px; max-width: 1200px; margin-left: auto; margin-right: auto;
+            text-transform: uppercase; letter-spacing: -1px; transform: scale(0.95); filter: blur(2px);
+        }
+        .lyric-line.active-line { color: #fff; transform: scale(1.05); filter: blur(0); text-shadow: 0 0 30px rgba(255,255,255,0.3); }
+
+        /* MODO SLIDE */
+        .mode-slide {
+            width: 100%; padding: 100px 40px 140px 40px; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center; height: 100%;
+        }
+        
+        .slide-block {
+            display: none; text-align: center; width: 100%;
+            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .slide-block.active-slide { display: block; }
+        
+        .slide-text {
+            font-weight: 800; line-height: 1.6; text-transform: uppercase;
+            text-shadow: 0 10px 40px rgba(0,0,0,0.9); white-space: pre-wrap;
+            max-width: 1400px; margin: 0 auto;
+        }
+
+        @keyframes slideIn { from { opacity: 0; transform: scale(0.95) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+        .chord { display: block; font-size: 60%; color: var(--primary-color); margin-bottom: 8px; font-family: 'Oswald'; opacity: 1; font-weight: normal; letter-spacing: 1px; }
+
+        /* --- CONTROLES FLUTUANTES --- */
+        .stage-controls {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 15, 15, 0.98); backdrop-filter: blur(20px);
+            padding: 10px 20px; border-radius: 60px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9); display: flex; align-items: center; gap: 15px; z-index: 200;
+        }
+        .control-section { display: flex; align-items: center; gap: 8px; }
+        .divider { width: 1px; height: 35px; background: rgba(255,255,255,0.1); }
+        
+        .btn-stage {
+            background: transparent; border: none; color: #777; width: 45px; height: 45px; border-radius: 50%;
+            cursor: pointer; font-size: 1.2rem; transition: 0.3s; display: flex; align-items: center; justify-content: center;
+        }
+        .btn-stage:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        
+        .btn-play-music { width: 55px; height: 55px; background: var(--primary-color); color: #000; font-size: 1.4rem; box-shadow: 0 0 25px rgba(0,188,212,0.3); border-radius: 50%; transition: 0.2s; border:none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-play-music:hover { transform: scale(1.1); box-shadow: 0 0 40px rgba(0,188,212,0.5); }
+        
+        .btn-nav-slide {
+            width: 55px; height: 55px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05); color: #fff; font-size: 1.4rem; cursor: pointer; transition: 0.2s;
+        }
+        .btn-nav-slide:hover { background: var(--primary-color); border-color: var(--primary-color); color: #000; transform: scale(1.1); }
+        
+        .mini-progress { width: 70px; height: 4px; background: #333; border-radius: 2px; overflow: hidden; cursor: pointer; display: flex; margin-bottom: 3px; }
+        .mini-progress-bar { width: 0%; height: 100%; background: var(--primary-color); }
+        .btn-active { color: #fff; background: #ff9800; box-shadow: 0 0 20px rgba(255, 152, 0, 0.4); border: none; }
+        
+        #controls-scroll { display: flex; align-items: center; gap: 8px; }
+        #controls-slide { display: none; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 30px; }
+        
+        input[type=range] { width: 80px; accent-color: var(--primary-color); cursor: pointer; height: 4px; }
+        .tone-box b { font-size: 1.4rem; color: var(--primary-color); font-family: 'Oswald'; }
+        .bpm-box { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 14px; border-radius: 20px; }
+        .led { width: 8px; height: 8px; background: #444; border-radius: 50%; transition: 0.1s; }
+        .led.flash { background: #ff4444; box-shadow: 0 0 15px #ff4444; transform: scale(1.4); }
+
+        #media-engine { display: none; }
+    </style>
 </head>
 <body>
-    <div id="app-container">
-        <div style="padding: 15px;">
-            <a href="index.html" class="cat-btn" style="text-decoration: none; display: inline-block;">
-                <i class="fas fa-arrow-left"></i> VOLTAR
-            </a>
+    <div class="aurora-bg"></div> <div id="stage-container">
+        <header class="stage-header">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <a href="index.html" class="btn-stage" title="Voltar"><i class="fas fa-arrow-left"></i></a>
+                <div class="header-info">
+                    <h2 id="song-title">--</h2>
+                    <span id="song-artist" style="font-size:0.8rem; color:#888;">ARTISTA</span>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:15px; align-items:center;">
+                <button onclick="toggleCifras()" class="btn-stage" title="Mostrar/Esconder Cifras (Tecla C)" style="width:auto; padding:0 15px; border-radius:20px; font-size:0.8rem; gap:8px; border:1px solid rgba(255,255,255,0.1);">
+                    <i class="fas fa-guitar"></i> <span id="txt-cifra-status">CIFRAS ON</span>
+                </button>
+
+                <button onclick="exportarProPresenter()" class="btn-stage" title="Exportar para ProPresenter" style="width:auto; padding:0 15px; border-radius:20px; font-size:0.8rem; gap:8px;">
+                    <i class="fas fa-file-export"></i> EXP
+                </button>
+
+                <div class="bpm-box" title="Metrônomo Visual">
+                    <div id="visual-metronome" class="led"></div>
+                    <span id="bpm-display" style="font-size: 0.8rem; font-weight: bold; color: #ccc;">--</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="lyrics-area" class="mode-scroll">
+            <div id="lyrics-content">Carregando...</div>
         </div>
 
-        <div class="video-container" style="padding: 0 15px;">
-            <iframe width="100%" height="200" src="https://www.youtube.com/embed/DIGITE_O_ID_AQUI" frameborder="0" allowfullscreen style="border-radius: 12px; border: 2px solid var(--primary-color);"></iframe>
-        </div>
+        <footer class="stage-controls">
+            <div class="control-section">
+                <button onclick="toggleMusic()" id="btn-play-music" class="btn-play-music" title="Play/Pause/Replay">
+                    <i class="fas fa-play"></i>
+                </button>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <div class="mini-progress" onclick="seekAudio(event)" title="Progresso"><div id="progress-bar" class="mini-progress-bar"></div></div>
+                    <span id="time-display" style="font-size:0.6rem; color:#888;">0:00 / 0:00</span>
+                </div>
+            </div>
+            <div class="divider"></div>
 
-        <div class="hud-container" style="display: flex; justify-content: space-around; background: var(--surface-color); margin: 15px; padding: 10px; border-radius: 10px; border: 1px solid #444;">
-            <div style="text-align: center;">
-                <small style="color: var(--primary-color); display: block;">TOM</small>
-                <strong>G (SOL)</strong>
+            <div class="control-section">
+                <button onclick="toggleViewMode()" id="btn-mode-switch" class="btn-stage" title="Alternar: Rolagem ou Slide">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
             </div>
-            <div style="text-align: center;">
-                <small style="color: var(--primary-color); display: block;">BPM</small>
-                <strong>72</strong>
+            
+            <div class="control-section">
+                <div id="controls-scroll">
+                    <button onclick="toggleAutoScroll()" id="btn-scroll" class="btn-stage" title="Ligar Rolagem"><i class="fas fa-arrow-down"></i></button>
+                    <input type="range" id="scroll-speed" min="1" max="10" value="3" onchange="saveSettings()" title="Velocidade">
+                </div>
+                <div id="controls-slide">
+                    <button onclick="prevSlide()" class="btn-nav-slide" title="Anterior"><i class="fas fa-chevron-left"></i></button>
+                    <span id="slide-count" style="font-size:1.1rem; font-weight:bold; color:#fff; min-width:60px; text-align:center;">1/1</span>
+                    <button onclick="nextSlide()" class="btn-nav-slide" title="Próximo"><i class="fas fa-chevron-right"></i></button>
+                </div>
             </div>
-            <div style="text-align: center;">
-                <small style="color: var(--primary-color); display: block;">CATEGORIA</small>
-                <strong>ADORAÇÃO</strong>
-            </div>
-        </div>
+            
+            <div class="divider"></div>
 
-        <div class="lyrics-container" style="padding: 20px; white-space: pre-wrap; text-align: center; line-height: 1.8; font-size: 1.1rem; color: #fff;">
-            <h3>É ELE</h3>
-            <p>
-            Ele é o Rei, Ele é o Senhor
-            Sua glória enche a terra...
-            (Cole a letra aqui)
-            </p>
-        </div>
+            <div class="control-section">
+                <div class="tone-box" title="Tom"><b><span id="current-tone">--</span></b></div>
+                <div style="display:flex; flex-direction:column; gap:2px; margin-left:5px;">
+                    <button onclick="mudarTom(1)" class="btn-stage" style="width:25px; height:25px; font-size:0.7rem;"><i class="fas fa-plus"></i></button>
+                    <button onclick="mudarTom(-1)" class="btn-stage" style="width:25px; height:25px; font-size:0.7rem;"><i class="fas fa-minus"></i></button>
+                </div>
+                <button onclick="cycleFontSize()" class="btn-stage" style="margin-left:5px;" title="Tamanho Letra"><i class="fas fa-text-height"></i></button>
+            </div>
+        </footer>
     </div>
+
+    <div id="media-engine"><div id="yt-player"></div><audio id="audio-player"></audio></div>
+
+    <script>
+        const notas = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const MAX_LINES_AUTO = 2; 
+        const MANUAL_SEPARATOR = "---"; 
+
+        let state = {
+            viewMode: localStorage.getItem('stage_viewMode') || 'scroll',
+            fontIndex: parseInt(localStorage.getItem('stage_fontIndex')) || 1,
+            scrollSpeed: parseInt(localStorage.getItem('stage_scrollSpeed')) || 3,
+            tomIndex: 0, originalTomIndex: 0, currentSlide: 0, slidesTotal: 0,
+            chordsVisible: true
+        };
+
+        let hino = null, letraOriginal = "", scrollInterval, playerType = null, ytPlayerObj = null;
+        const fontSizes = ['5vh', '7vh', '9vh', '12vh']; 
+
+        window.onload = () => {
+            carregarHinoDoStorage();
+            
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'hino_atual') { carregarHinoDoStorage(); }
+                if (e.key === 'tema_cor') { document.documentElement.style.setProperty('--primary-color', e.newValue); }
+            });
+
+            document.getElementById('lyrics-area').addEventListener('scroll', checkFocusLine);
+            document.getElementById('scroll-speed').addEventListener('input', updateSpeed);
+            window.addEventListener('resize', checkFocusLine);
+        };
+
+        function carregarHinoDoStorage() {
+            const data = localStorage.getItem('hino_atual');
+            if(!data) return;
+            hino = JSON.parse(data);
+
+            document.getElementById('song-title').innerText = hino.nome;
+            document.getElementById('song-artist').innerText = hino.artista;
+            document.getElementById('bpm-display').innerText = (hino.bpm || "--") + " BPM";
+            letraOriginal = hino.letra || "";
+            
+            const tomSalvo = hino.tom ? hino.tom.toUpperCase() : "C";
+            state.originalTomIndex = notas.indexOf(tomSalvo) === -1 ? 0 : notas.indexOf(tomSalvo);
+            state.tomIndex = state.originalTomIndex;
+            
+            document.getElementById('scroll-speed').value = state.scrollSpeed;
+            applySettings();
+            carregarMidia();
+            if(hino.bpm) iniciarMetronomo(hino.bpm);
+        }
+
+        function exportarProPresenter() {
+            if (!hino) return;
+            let letraLimpa = letraOriginal.replace(/\[.*?\]/g, "");
+            let conteudoArquivo = `Title: ${hino.nome}\nArtist: ${hino.artista}\n\n`;
+            
+            if(letraLimpa.includes(MANUAL_SEPARATOR)) {
+                conteudoArquivo += letraLimpa; 
+            } else {
+                const linhas = letraLimpa.split('\n');
+                let blocoTemp = [];
+                linhas.forEach(linha => {
+                    if(linha.trim() !== "") {
+                        blocoTemp.push(linha.trim());
+                        if(blocoTemp.length >= MAX_LINES_AUTO) {
+                            conteudoArquivo += blocoTemp.join('\n') + "\n\n"; 
+                            blocoTemp = [];
+                        }
+                    } else if (blocoTemp.length > 0) {
+                        conteudoArquivo += blocoTemp.join('\n') + "\n\n";
+                        blocoTemp = [];
+                    }
+                });
+                if(blocoTemp.length > 0) conteudoArquivo += blocoTemp.join('\n');
+            }
+
+            const blob = new Blob([conteudoArquivo], { type: "text/plain;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${hino.nome.replace(/[^a-z0-9]/gi, '_').toUpperCase()}_ProPresenter.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function toggleCifras() {
+            state.chordsVisible = !state.chordsVisible;
+            const container = document.getElementById('lyrics-area');
+            const btnTxt = document.getElementById('txt-cifra-status');
+            
+            // Adiciona classe ao container para controlar visibilidade via CSS
+            if(state.chordsVisible) {
+                // Remove regra de display:none dos acordes
+                let styles = document.getElementById('dynamic-chord-style');
+                if(styles) styles.remove();
+                btnTxt.innerText = "CIFRAS ON";
+                btnTxt.style.color = "#fff";
+            } else {
+                // Cria regra para esconder
+                let style = document.createElement('style');
+                style.id = 'dynamic-chord-style';
+                style.innerHTML = '.chord { display: none !important; }';
+                document.head.appendChild(style);
+                btnTxt.innerText = "CIFRAS OFF";
+                btnTxt.style.color = "#777";
+            }
+        }
+
+        function renderizarSlide() {
+            const container = document.getElementById('lyrics-content');
+            const diff = state.tomIndex - state.originalTomIndex;
+            const size = fontSizes[state.fontIndex]; 
+
+            let blocos = [];
+            if (letraOriginal.includes(MANUAL_SEPARATOR)) {
+                blocos = letraOriginal.split(MANUAL_SEPARATOR).map(b => b.trim()).filter(b => b !== "");
+            } else {
+                const linhasBrutas = letraOriginal.split('\n');
+                let blocoTemp = [];
+                linhasBrutas.forEach((linha) => {
+                    if (linha.trim() !== "") {
+                        blocoTemp.push(linha);
+                        if (blocoTemp.length >= MAX_LINES_AUTO) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
+                    } else if (blocoTemp.length > 0) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
+                });
+                if (blocoTemp.length > 0) blocos.push(blocoTemp.join('\n'));
+            }
+
+            state.slidesTotal = blocos.length;
+            if(state.currentSlide >= state.slidesTotal) state.currentSlide = 0;
+
+            let html = "";
+            blocos.forEach((bloco, idx) => {
+                let linhas = bloco.split('\n');
+                let blocoHtml = "";
+                linhas.forEach(l => { blocoHtml += `<div>${processarLinha(l, diff)}</div>`; });
+                let active = idx === state.currentSlide ? 'active-slide' : '';
+                html += `<div class="slide-block ${active}" id="slide-${idx}"><div class="slide-text" style="font-size:${size}">${blocoHtml}</div></div>`;
+            });
+            container.innerHTML = html;
+            updateSlideCounter();
+            document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        }
+
+        function toggleViewMode() { state.viewMode = state.viewMode === 'scroll' ? 'slide' : 'scroll'; saveSettings(); applySettings(); }
+        function applySettings() {
+            const area = document.getElementById('lyrics-area');
+            const btnMode = document.getElementById('btn-mode-switch');
+            const ctrlScroll = document.getElementById('controls-scroll');
+            const ctrlSlide = document.getElementById('controls-slide');
+            if(scrollInterval) clearInterval(scrollInterval);
+            scrollInterval = null;
+            document.getElementById('btn-scroll').classList.remove('btn-active');
+            
+            if(state.viewMode === 'scroll') {
+                area.className = 'mode-scroll'; area.scrollTop = 0;
+                btnMode.innerHTML = '<i class="fas fa-scroll"></i>';
+                ctrlScroll.style.display = 'flex'; ctrlSlide.style.display = 'none';
+                renderizarScroll();
+            } else {
+                area.className = 'mode-slide';
+                btnMode.innerHTML = '<i class="fas fa-tv"></i>';
+                ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'flex';
+                state.currentSlide = 0; 
+                renderizarSlide();
+            }
+            document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        }
+
+        function renderizarScroll() {
+            const container = document.getElementById('lyrics-content');
+            const diff = state.tomIndex - state.originalTomIndex;
+            const size = fontSizes[state.fontIndex]; 
+            let linhas = letraOriginal.split('\n');
+            let html = "";
+            linhas.forEach(l => {
+                if(l.trim() === "" || l.includes(MANUAL_SEPARATOR)) return; 
+                html += `<div class="lyric-line" style="font-size:${size}">${processarLinha(l, diff)}</div>`;
+            });
+            container.innerHTML = html;
+            setTimeout(checkFocusLine, 100);
+            document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        }
+
+        function processarLinha(linha, diff) {
+            return linha.replace(/\[([A-G][#b]?)(.*?)\]/g, (match, nota, comp) => {
+                let idx = notas.indexOf(nota.toUpperCase());
+                if(idx === -1) return match;
+                let novoIdx = (idx + diff + 12) % 12;
+                return `<span class="chord">${notas[novoIdx]}${comp}</span>`;
+            });
+        }
+
+        function nextSlide() { if(state.currentSlide < state.slidesTotal - 1) { state.currentSlide++; updateSlideView(); } }
+        function prevSlide() { if(state.currentSlide > 0) { state.currentSlide--; updateSlideView(); } }
+        function updateSlideView() {
+            document.querySelectorAll('.slide-block').forEach(b => b.classList.remove('active-slide'));
+            document.getElementById(`slide-${state.currentSlide}`).classList.add('active-slide');
+            updateSlideCounter();
+        }
+        function updateSlideCounter() { document.getElementById('slide-count').innerText = `${state.currentSlide + 1}/${state.slidesTotal}`; }
+        function toggleAutoScroll() {
+            const btn = document.getElementById('btn-scroll');
+            const area = document.getElementById('lyrics-area');
+            if(scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; btn.classList.remove('btn-active'); } 
+            else { btn.classList.add('btn-active'); const delay = (11 - state.scrollSpeed) * 15; scrollInterval = setInterval(() => { area.scrollTop += 1; }, delay); }
+        }
+        function checkFocusLine() {
+            if(state.viewMode !== 'scroll') return;
+            const lines = document.querySelectorAll('.lyric-line');
+            const center = document.getElementById('lyrics-area').getBoundingClientRect().height / 2;
+            let closest = null, minDist = Infinity;
+            lines.forEach(l => {
+                const dist = Math.abs(center - (l.getBoundingClientRect().top + l.offsetHeight/2));
+                l.classList.remove('active-line');
+                if(dist < minDist) { minDist = dist; closest = l; }
+            });
+            if(closest && minDist < 300) closest.classList.add('active-line');
+        }
+        function saveSettings() { localStorage.setItem('stage_viewMode', state.viewMode); localStorage.setItem('stage_fontIndex', state.fontIndex); localStorage.setItem('stage_scrollSpeed', document.getElementById('scroll-speed').value); }
+        function updateSpeed() { state.scrollSpeed = document.getElementById('scroll-speed').value; saveSettings(); if(scrollInterval) { toggleAutoScroll(); toggleAutoScroll(); } }
+        function cycleFontSize() { state.fontIndex = (state.fontIndex + 1) % fontSizes.length; saveSettings(); state.viewMode === 'scroll' ? renderizarScroll() : renderizarSlide(); }
+        function mudarTom(d) { state.tomIndex = (state.tomIndex + d + 12) % 12; state.viewMode === 'scroll' ? renderizarScroll() : renderizarSlide(); }
+        function carregarMidia() {
+            if(hino.audioUrl) { playerType = 'audio'; const aud = document.getElementById('audio-player'); aud.src = hino.audioUrl; aud.ontimeupdate = updateProgress; aud.onended = () => document.querySelector('#btn-play-music i').className = "fas fa-redo"; } 
+            else if (hino.videoID) { playerType = 'youtube'; if(!window.YT) { var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag); } else onYouTubeIframeAPIReady(); }
+        }
+        function onYouTubeIframeAPIReady() { ytPlayerObj = new YT.Player('yt-player', { height:'0', width:'0', videoId:hino.videoID, events:{'onStateChange':onYtState} }); }
+        function toggleMusic() {
+            const icon = document.querySelector('#btn-play-music i');
+            if(playerType === 'audio') { const aud = document.getElementById('audio-player'); if(aud.ended) { aud.currentTime = 0; aud.play(); icon.className = "fas fa-pause"; } else if(aud.paused) { aud.play(); icon.className = "fas fa-pause"; } else { aud.pause(); icon.className = "fas fa-play"; } } 
+            else if (playerType === 'youtube' && ytPlayerObj) { const s = ytPlayerObj.getPlayerState(); if(s === 0) { ytPlayerObj.seekTo(0); ytPlayerObj.playVideo(); } else if(s === 1) ytPlayerObj.pauseVideo(); else ytPlayerObj.playVideo(); }
+        }
+        function updateProgress() {
+            let cur=0, dur=0;
+            if(playerType === 'audio') { const a = document.getElementById('audio-player'); cur=a.currentTime; dur=a.duration; } else if(playerType==='youtube' && ytPlayerObj && ytPlayerObj.getCurrentTime) { cur=ytPlayerObj.getCurrentTime(); dur=ytPlayerObj.getDuration(); }
+            if(dur>0) { document.getElementById('progress-bar').style.width = ((cur/dur)*100) + "%"; document.getElementById('time-display').innerText = formatTime(cur) + " / " + formatTime(dur); }
+        }
+        setInterval(() => { if(playerType === 'youtube') updateProgress(); }, 1000);
+        function onYtState(e) { const icon = document.querySelector('#btn-play-music i'); if(e.data === 1) icon.className = "fas fa-pause"; else if (e.data === 0) icon.className = "fas fa-redo"; else icon.className = "fas fa-play"; }
+        function seekAudio(e) { const rect = e.currentTarget.getBoundingClientRect(); const perc = (e.clientX - rect.left) / rect.width; if(playerType === 'audio') document.getElementById('audio-player').currentTime = perc * document.getElementById('audio-player').duration; else if (playerType === 'youtube') ytPlayerObj.seekTo(perc * ytPlayerObj.getDuration()); }
+        function formatTime(s) { const m=Math.floor(s/60), sec=Math.floor(s%60); return m+":"+(sec<10?"0"+sec:sec); }
+        function iniciarMetronomo(bpm) { const ms = 60000 / bpm, luz = document.getElementById('visual-metronome'); setInterval(() => { luz.classList.add('flash'); setTimeout(()=>luz.classList.remove('flash'),100); }, ms); }
+        
+        document.addEventListener('keydown', (e) => { 
+            if(e.code === 'Space') { e.preventDefault(); toggleMusic(); } 
+            if(e.code === 'ArrowRight') nextSlide(); 
+            if(e.code === 'ArrowLeft') prevSlide(); 
+            if(e.code === 'Enter') toggleAutoScroll(); 
+            if(e.key.toLowerCase() === 'c') toggleCifras();
+        });
+    </script>
 </body>
 </html>

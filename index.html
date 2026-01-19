@@ -3,63 +3,557 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Harmonia - App de Louvor</title>
+    <title>Harmonia - Gestão de Louvor</title>
+    
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        /* Ajustes de Layout */
+        .category-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; gap: 15px; background: var(--bg-color); position: sticky; top: 0; z-index: 100; }
+        .nav-scroll-container { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+        .nav-scroll-container::-webkit-scrollbar { display: none; }
+        .nav-actions { display: flex; gap: 8px; }
+
+        /* SKELETON LOADING */
+        @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton {
+            background: linear-gradient(90deg, #1a1a1a 25%, #252525 50%, #1a1a1a 75%);
+            background-size: 200% 100%; animation: skeleton-loading 1.5s infinite linear;
+            border-color: rgba(255,255,255,0.02) !important; pointer-events: none;
+        }
+        .skeleton * { visibility: hidden; }
+        .skeleton .song-info::before { content: ""; display: block; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.05); margin-right: 15px; }
+        .skeleton .song-details { position: relative; width: 100%; }
+        .skeleton .song-details::before, .skeleton .song-details::after { content: ""; display: block; background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .skeleton .song-details::before { width: 60%; height: 14px; margin-bottom: 8px; }
+        .skeleton .song-details::after { width: 40%; height: 10px; }
+
+        /* Estilo da Lista de Histórico */
+        .historico-item {
+            background: #222; padding: 15px; border-radius: 8px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid #333;
+        }
+        .historico-info h4 { margin: 0; color: var(--primary-color); text-transform: uppercase; font-family: 'Oswald'; }
+        .historico-info small { color: #888; font-size: 0.8rem; }
+
+        /* Toolbar de Transposição */
+        .editor-toolbar {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+            background: #222; padding: 8px; border-radius: 8px; border: 1px solid #333;
+        }
+        .btn-tool {
+            background: #333; color: #fff; border: 1px solid #444; padding: 5px 12px;
+            border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;
+        }
+        .btn-tool:hover { background: var(--primary-color); color: #000; border-color: var(--primary-color); }
+        .tool-label { color: #888; font-size: 0.75rem; text-transform: uppercase; margin-right: 5px; }
+
+        /* PAINEL ENSAIO (Visível acima do player) */
+        #ensaio-panel {
+            position: fixed; bottom: 110px; left: 0; width: 100%; 
+            background: #111; border-top: 1px solid var(--primary-color);
+            padding: 15px 20px; box-sizing: border-box; display: none;
+            z-index: 4900; box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
+            animation: slideUpPanel 0.3s ease;
+        }
+        @keyframes slideUpPanel { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .ensaio-controls { display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .ensaio-group { display: flex; align-items: center; gap: 10px; background: #222; padding: 5px 15px; border-radius: 20px; border: 1px solid #333; }
+        .ensaio-label { font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; margin-right: 5px; }
+        
+        .btn-loop {
+            background: #333; border: 1px solid #555; color: #fff; width: 35px; height: 35px; border-radius: 50%;
+            cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.2s;
+        }
+        .btn-loop.active { background: var(--primary-color); color: #000; border-color: var(--primary-color); box-shadow: 0 0 10px var(--primary-color); }
+        
+        /* Marcadores na barra de progresso */
+        .marker {
+            position: absolute; top: -5px; width: 2px; height: 14px; background: #fff; z-index: 10; pointer-events: none; 
+        }
+        .marker::after { content: attr(data-label); position: absolute; top: -15px; left: -5px; font-size: 0.6rem; font-weight: bold; }
+        .marker-a { background: #4CAF50; } .marker-a::after { color: #4CAF50; }
+        .marker-b { background: #FF5252; } .marker-b::after { color: #FF5252; }
+        
+        #loop-range-fill {
+            position: absolute; top: 0; height: 100%; background: rgba(0, 188, 212, 0.3); pointer-events: none; display: none;
+        }
+    </style>
 </head>
-<body>
+<body class="body-com-player">
     <div id="app-container">
         <header class="main-header">
-            <div class="logo">
-                <h1><i class="fas fa-music"></i> HARMONIA</h1>
-                <p>GRUPO DE LOUVOR</p>
+            <div class="header-actions">
+                <button onclick="toggleConfig()" id="btn-config" class="btn-icon-top" title="Configurações"><i class="fas fa-cog"></i></button>
+                <button onclick="sair()" class="btn-icon-top" title="Sair do App"><i class="fas fa-sign-out-alt"></i></button>
             </div>
+            <div class="logo">
+                <i class="fas fa-music"></i>
+                <h1>HARMONIA</h1>
+            </div>
+            <span class="logo-subtitle">REPERTÓRIO PROFISSIONAL</span>
+            
+            <div id="config-panel">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.8rem; color: #666; text-transform: uppercase;">Ações da Escala</h4>
+                <button onclick="salvarEscalaAtual()" class="btn-config-item" style="background-color: #2196F3;"><i class="fas fa-save"></i> SALVAR ESCALA ATUAL</button>
+                <button onclick="abrirHistoricoEscalas()" class="btn-config-item" style="background-color: #673AB7;"><i class="fas fa-history"></i> VER HISTÓRICO</button>
+                <button onclick="compartilharEscala()" class="btn-config-item btn-whatsapp"><i class="fab fa-whatsapp"></i> COMPARTILHAR</button>
+                <button onclick="limparSetlistGeral()" class="btn-config-item btn-danger"><i class="fas fa-broom"></i> LIMPAR SETLIST</button>
+                <div style="width: 100%; height: 1px; background: #333; margin: 10px 0;"></div>
+                <div class="color-grid">
+                    <div class="color-option" onclick="mudarTema('#00bcd4')" style="background: #00bcd4;"></div>
+                    <div class="color-option" onclick="mudarTema('#bb86fc')" style="background: #bb86fc;"></div>
+                    <div class="color-option" onclick="mudarTema('#1db954')" style="background: #1db954;"></div>
+                    <div class="color-option" onclick="mudarTema('#ff9800')" style="background: #ff9800;"></div>
+                </div>
+            </div>
+
             <div class="search-bar">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Buscar hino ou artista...">
+                <i class="fas fa-search" style="color: var(--primary-color);"></i>
+                <input type="text" id="searchInput" onkeyup="buscar()" placeholder="Buscar música ou artista...">
             </div>
         </header>
 
         <nav class="category-nav">
-            <button class="cat-btn active">TODOS</button>
-            <button class="cat-btn">ADORAÇÃO</button>
-            <button class="cat-btn">CELEBRAÇÃO</button>
-            <button class="cat-btn">SETLIST</button>
+            <div class="nav-scroll-container" id="category-tabs"></div>
+            <div class="nav-actions">
+                <button class="add-tab-btn" onclick="abrirGerenciadorPlaylists()" style="background: #333; color: white;" title="Gerenciar Playlists"><i class="fas fa-list"></i></button>
+                <button class="add-tab-btn" onclick="abrirModal()" title="Cadastrar Nova Música"><i class="fas fa-plus-circle"></i> ADICIONAR</button>
+            </div>
         </nav>
 
-        <main class="song-list" id="songList">
-            
-            <div class="song-card" onclick="verHino('ele-e')">
-                <div class="song-main">
-                    <div class="song-icon"><i class="fas fa-play-circle"></i></div>
-                    <div class="song-details">
-                        <h3>É ELE</h3>
-                        <p>Marine Friesen</p>
+        <main class="song-list" id="songList"></main>
+
+        <div id="ensaio-panel">
+            <div class="ensaio-controls">
+                <div class="ensaio-group">
+                    <span class="ensaio-label"><i class="fas fa-redo"></i> Loop A-B</span>
+                    <button id="btn-loop-a" class="btn-loop" onclick="marcarLoop('A')" title="Marcar Início (A)">A</button>
+                    <button id="btn-loop-b" class="btn-loop" onclick="marcarLoop('B')" title="Marcar Fim (B) e Loopar">B</button>
+                    <button class="btn-loop" onclick="limparLoop(false)" title="Limpar Loop" style="font-size: 0.7rem;"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <div class="ensaio-group">
+                    <span class="ensaio-label"><i class="fas fa-tachometer-alt"></i> Velocidade</span>
+                    <select id="playback-rate" onchange="mudarVelocidade(this.value)" style="background:#333; border:none; color:white; padding:5px; border-radius:4px; font-weight:bold;">
+                        <option value="0.25">0.25x (Lento)</option>
+                        <option value="0.5">0.50x (Lento)</option>
+                        <option value="0.75">0.75x (Médio)</option>
+                        <option value="1" selected>1.00x (Normal)</option>
+                        <option value="1.25">1.25x (Rápido)</option>
+                    </select>
+                </div>
+                
+                <button onclick="toggleEnsaioPanel()" style="background:none; border:none; color:#888; cursor:pointer;" title="Fechar"><i class="fas fa-chevron-down"></i></button>
+            </div>
+        </div>
+
+        <div id="player-spotify">
+            <div class="player-top-progress">
+                <span id="time-current">0:00</span>
+                <div class="progress-container-sp" onclick="seek(event)">
+                    <div id="progress-bar-fill"></div>
+                    <div id="loop-range-fill"></div>
+                    <div id="marker-a" class="marker marker-a" data-label="A" style="display:none;"></div>
+                    <div id="marker-b" class="marker marker-b" data-label="B" style="display:none;"></div>
+                </div>
+                <span id="time-total">0:00</span>
+            </div>
+            <div class="player-main-content">
+                <div class="player-info">
+                    <div class="player-album-art" id="player-art-container"><i class="fas fa-music" style="color: #555;"></i></div>
+                    <div class="player-text-details" onclick="abrirModoPalcoPlayer()" style="cursor: pointer;">
+                        <b id="sp-name">Selecione uma música</b>
+                        <span id="sp-artist">Artista</span>
                     </div>
                 </div>
-                <div class="song-badge">TOM: G</div>
-            </div>
-
-            <div class="song-card" onclick="verHino('eu-quero-adorar')">
-                <div class="song-main">
-                    <div class="song-icon"><i class="fas fa-play-circle"></i></div>
-                    <div class="song-details">
-                        <h3>EU SÓ QUERO ADORAR</h3>
-                        <p>David Quinlan</p>
+                <div class="player-controls">
+                    <button class="btn-player" id="btn-shuffle" onclick="toggleShuffle()"><i class="fas fa-random"></i></button>
+                    <button class="btn-player" onclick="musicaAnterior()"><i class="fas fa-step-backward"></i></button>
+                    <button class="btn-player btn-play-main" onclick="togglePlayPause()"><i class="fas fa-play" id="sp-play-icon"></i></button>
+                    <button class="btn-player" onclick="proximaMusica()"><i class="fas fa-step-forward"></i></button>
+                    <button class="btn-player" id="btn-repeat" onclick="toggleRepeat()"><i class="fas fa-redo"></i></button>
+                </div>
+                <div class="player-extra">
+                    <button onclick="toggleEnsaioPanel()" id="btn-ensaio" class="btn-player" title="Modo Ensaio" style="margin-right:15px; color:#888;"><i class="fas fa-cogs"></i></button>
+                    
+                    <div style="margin-right: 15px; text-align: center;">
+                        <button onclick="toggleMetronomo()" id="btn-metronomo" style="background:none; border:none; color:#888; cursor:pointer;"><i class="fas fa-stopwatch" style="font-size: 1.2rem;"></i></button>
+                        <small id="display-bpm" style="display:block; font-size:0.5rem; color:#888;">-- BPM</small>
+                    </div>
+                    <div class="volume-container">
+                        <i class="fas fa-volume-up" style="font-size: 0.8rem; color: #888;"></i>
+                        <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="ajustarVolume(this.value)">
+                    </div>
+                    <div style="text-align: center; min-width: 45px; margin-left: 10px;">
+                        <small style="display:block; font-size: 0.5rem; color: #888;">TOM</small>
+                        <span id="sp-tom" style="color: var(--primary-color); font-weight: bold; font-size: 1rem;">--</span>
                     </div>
                 </div>
-                <div class="song-badge">TOM: D</div>
             </div>
+            <div id="yt-api-container" style="display:none;"></div>
+            <audio id="main-audio-player" style="display:none;"></audio>
+        </div>
 
-        </main>
+        <div id="modal-playlists" class="modal-overlay">
+            <div class="modal-container" style="max-width: 500px;">
+                <header class="modal-header">
+                    <h2>MINHAS PLAYLISTS</h2>
+                    <button onclick="fecharGerenciador()" style="background:none; border:none; color:#888; font-size:24px; cursor:pointer;">&times;</button>
+                </header>
+                <div class="modal-body">
+                    <div style="display:flex; gap:10px; margin-bottom:20px;">
+                        <input type="text" id="nova-playlist-nome" placeholder="Nome da playlist..." style="flex:1; padding:12px; background:#111; border:1px solid #333; color:white; border-radius:8px;">
+                        <button onclick="criarPlaylist()" class="btn-save-main" style="padding: 10px 20px;">CRIAR</button>
+                    </div>
+                    <div id="lista-playlists-gerenciador"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="modal-historico" class="modal-overlay">
+            <div class="modal-container" style="max-width: 600px;">
+                <header class="modal-header">
+                    <h2>HISTÓRICO DE CULTOS</h2>
+                    <button onclick="document.getElementById('modal-historico').style.display='none'" style="background:none; border:none; color:#888; font-size:24px; cursor:pointer;">&times;</button>
+                </header>
+                <div class="modal-body">
+                    <p style="color:#888; font-size:0.9rem; margin-bottom:15px; text-align:center;">Selecione um culto antigo para carregar as músicas de volta ao seu Setlist.</p>
+                    <div id="lista-historico">Carregando...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-cadastro" class="modal-overlay">
+            <div class="modal-container">
+                <header class="modal-header">
+                    <h2 id="modal-titulo">NOVO HINO</h2>
+                    <button onclick="fecharModal()" style="background:none; border:none; color:#888; font-size:24px; cursor:pointer;">&times;</button>
+                </header>
+                
+                <div class="modal-tabs">
+                    <button class="tab-btn active" onclick="switchTab('tab-dados')">DADOS GERAIS</button>
+                    <button class="tab-btn" onclick="switchTab('tab-letra')">LETRA & CIFRA</button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="tab-dados" class="tab-content active">
+                        <div class="form-group"><label>NOME DA MÚSICA</label><input type="text" id="novo-nome" style="text-transform: uppercase;"></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:2"><label>ARTISTA</label><input type="text" id="novo-artista"></div>
+                            <div class="form-group" style="flex:1"><label>TOM ORIGINAL</label><input type="text" id="novo-tom" style="text-transform: uppercase;"></div>
+                            <div class="form-group" style="flex:1"><label>BPM</label><input type="number" id="novo-bpm" placeholder="120"></div>
+                        </div>
+                        <div class="form-group"><label>CATEGORIA / PLAYLIST</label><select id="nova-categoria"></select></div>
+                        <div class="form-group"><label>LINK YOUTUBE</label><input type="text" id="novo-video" placeholder="Cole o link aqui..."></div>
+                        <div class="form-group">
+                            <label>ARQUIVO DE ÁUDIO (MP3)</label>
+                            <div class="upload-box" onclick="document.getElementById('novo-audio').click()">
+                                <i class="fas fa-cloud-upload-alt" style="color:var(--primary-color); font-size:1.5rem;"></i>
+                                <p id="upload-status" style="margin:5px 0 0; color:#888;">Clique para selecionar arquivo</p>
+                                <input type="file" id="novo-audio" accept="audio/mp3" style="display:none">
+                            </div>
+                        </div>
+                        <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border-radius:8px;">
+                            <label style="color:#fff; display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" id="check-setlist" style="width:20px; height:20px;"> 
+                                <span>Adicionar imediatamente ao <b>Setlist</b>?</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="tab-letra" class="tab-content">
+                        <div class="form-group" style="height:100%; display:flex; flex-direction:column;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <label style="margin:0;">EDITOR DE LETRA</label>
+                                <div class="editor-toolbar">
+                                    <span class="tool-label"><i class="fas fa-music"></i> Transpor:</span>
+                                    <button class="btn-tool" onclick="transporEditor(-1)" title="Baixar Meio Tom">- ½</button>
+                                    <button class="btn-tool" onclick="transporEditor(1)" title="Subir Meio Tom">+ ½</button>
+                                </div>
+                            </div>
+                            <textarea id="nova-letra" style="flex:1; min-height:300px; resize:vertical; font-family:monospace; line-height:1.5; font-size:1rem; white-space: pre;" placeholder="Cole a letra aqui. Coloque cifras entre colchetes, ex: [C] [Am7]"></textarea>
+                            <small style="color:#666; margin-top:5px;"><i class="fas fa-info-circle"></i> Use <b>---</b> para separar slides manualmente. Cifras devem estar entre <b>[ ]</b>.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <footer class="modal-footer">
+                    <button onclick="fecharModal()" class="btn-cancel">CANCELAR</button>
+                    <button id="btn-salvar-hino" onclick="salvarHino()" class="btn-save-main">SALVAR MÚSICA</button>
+                </footer>
+            </div>
+        </div>
     </div>
 
     <script>
-        function verHino(id) {
-            // Futuramente abrirá a página da letra
-            console.log("Abrindo: " + id);
+        const CLOUD_NAME = "duezqryny"; 
+        const UPLOAD_PRESET = "ml_default"; 
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCgOKQuVYJrWkZpWcFi-aGnLMW1XkI3Nw",
+            authDomain: "harmonia-louvor.firebaseapp.com",
+            databaseURL: "https://harmonia-louvor-default-rtdb.firebaseio.com",
+            projectId: "harmonia-louvor",
+            storageBucket: "harmonia-louvor.firebasestorage.app",
+            messagingSenderId: "779206372812",
+            appId: "1:779206372812:web:006ee8e474bf2d8cf0c169"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+        function showToast(msg, tipo = "success") {
+            let bg = "#00bcd4"; if (tipo === "error") bg = "#ff4444"; if (tipo === "info") bg = "#333"; 
+            Toastify({ text: msg, duration: 3000, close: true, gravity: "top", position: "center", backgroundColor: bg, stopOnFocus: true, style: { borderRadius: "8px", fontWeight: "bold" } }).showToast();
         }
+
+        let db, hinosData = {}, idEdicao = null, categoriasUsuario = {}, sortableInstance = null;
+        let player, playlistAtual = [], indexAtual = 0, isShuffle = false, isRepeat = false, filtroAtual = 'todos';
+        
+        // VARIÁVEIS MODO ENSAIO
+        let loopStart = null, loopEnd = null, isLooping = false;
+        const notasMusicais = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        function renderizarSkeleton() {
+            const lista = document.getElementById('songList'); if(!lista) return;
+            let html = '';
+            for(let i=0; i<6; i++) { html += `<div class="song-card skeleton"><div class="song-info"><div class="play-circle"></div><div class="song-details"><h3>...</h3><p>...</p></div></div></div>`; }
+            lista.innerHTML = html;
+        }
+        renderizarSkeleton();
+
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                db = firebase.database().ref('usuarios/' + user.uid + '/repertorio');
+                db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(); });
+                firebase.database().ref(`usuarios/${user.uid}/configuracoes/categorias`).on('value', (snap) => {
+                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "celebracao": { nome: "CELEBRAÇÃO", fixada: true } };
+                    renderizarAbas(); atualizarSelectCategorias();
+                });
+                if(localStorage.getItem('tema_cor')) mudarTema(localStorage.getItem('tema_cor'));
+            } else { window.location.href = 'login.html'; }
+        });
+
+        // --- MODO ENSAIO (Loop e Velocidade) ---
+        function toggleEnsaioPanel() {
+            const p = document.getElementById('ensaio-panel');
+            const btn = document.getElementById('btn-ensaio');
+            if(p.style.display === 'block') { p.style.display = 'none'; btn.style.color = '#888'; }
+            else { p.style.display = 'block'; btn.style.color = 'var(--primary-color)'; }
+        }
+
+        function marcarLoop(ponto) {
+            const aud = document.getElementById('main-audio-player');
+            let t = 0;
+            if (aud.src && !aud.paused) t = aud.currentTime;
+            else if (player && typeof player.getCurrentTime === 'function') t = player.getCurrentTime();
+
+            if (ponto === 'A') {
+                loopStart = t;
+                document.getElementById('marker-a').style.display = 'block';
+                document.getElementById('marker-a').style.left = (t / getDuration() * 100) + "%";
+                document.getElementById('btn-loop-a').classList.add('active');
+                showToast("Início (A) marcado!");
+            } else if (ponto === 'B') {
+                if(loopStart === null) { showToast("Marque o ponto A primeiro!", "error"); return; }
+                if(t <= loopStart) { showToast("O ponto B deve ser depois do A!", "error"); return; }
+                loopEnd = t; isLooping = true;
+                document.getElementById('marker-b').style.display = 'block';
+                document.getElementById('marker-b').style.left = (t / getDuration() * 100) + "%";
+                document.getElementById('btn-loop-b').classList.add('active');
+                const fill = document.getElementById('loop-range-fill');
+                const pA = (loopStart / getDuration() * 100);
+                const pB = (loopEnd / getDuration() * 100);
+                fill.style.display = 'block'; fill.style.left = pA + "%"; fill.style.width = (pB - pA) + "%";
+                seekToTime(loopStart); showToast("Loop Ativado!");
+            }
+        }
+
+        function limparLoop(silencioso = false) {
+            loopStart = null; loopEnd = null; isLooping = false;
+            document.getElementById('marker-a').style.display = 'none';
+            document.getElementById('marker-b').style.display = 'none';
+            document.getElementById('loop-range-fill').style.display = 'none';
+            document.getElementById('btn-loop-a').classList.remove('active');
+            document.getElementById('btn-loop-b').classList.remove('active');
+            mudarVelocidade(1); document.getElementById('playback-rate').value = "1";
+            if(!silencioso) showToast("Loop limpo.");
+        }
+
+        function mudarVelocidade(r) {
+            const aud = document.getElementById('main-audio-player');
+            if(aud.src) aud.playbackRate = parseFloat(r);
+            if(player && typeof player.setPlaybackRate === 'function') player.setPlaybackRate(parseFloat(r));
+        }
+
+        function checkLoop(t) { if(isLooping && loopEnd && t >= loopEnd) { seekToTime(loopStart); } }
+        function getDuration() { const aud = document.getElementById('main-audio-player'); if(aud.src) return aud.duration; if(player && player.getDuration) return player.getDuration(); return 1; }
+        function seekToTime(t) { const aud = document.getElementById('main-audio-player'); if(aud.src) aud.currentTime = t; else if(player) player.seekTo(t); }
+
+        // --- PLAYER DE ÁUDIO ---
+        function ajustarVolume(val) { const at = document.getElementById('main-audio-player'); if(at) at.volume=val/100; if(player && player.setVolume) player.setVolume(val); }
+        
+        function tocarNoPlayer(id) {
+            limparLoop(true); 
+            const h = hinosData[id]; 
+            indexAtual = playlistAtual.findIndex(m => m.id === id);
+            localStorage.setItem('hino_atual', JSON.stringify({...h, id}));
+
+            document.getElementById('sp-name').innerText = h.nome; 
+            document.getElementById('sp-artist').innerText = h.artista || "Artista"; 
+            document.getElementById('sp-tom').innerText = h.tom || "--";
+            atualizarDisplayBPM(h);
+            
+            const art = document.getElementById('player-art-container');
+            if (h.videoID) art.innerHTML = `<img src="https://img.youtube.com/vi/${h.videoID}/mqdefault.jpg" style="width:100%; height:100%; object-fit:cover;">`; 
+            else art.innerHTML = `<i class="fas fa-music" style="color: #555;"></i>`;
+            
+            const at = document.getElementById('main-audio-player'); 
+            at.pause(); 
+            if(player && player.stopVideo) player.stopVideo();
+
+            if(h.audioUrl) { 
+                at.src = h.audioUrl; 
+                at.play().catch(e => { console.log("Erro autoplay audio:", e); showToast("Clique no Play para iniciar.", "info"); });
+                document.getElementById('sp-play-icon').className="fas fa-pause"; 
+                iniciarProgressoAudio(); 
+            }
+            else if(h.videoID) { 
+                if(player && typeof player.loadVideoById === 'function') {
+                    player.loadVideoById(h.videoID); 
+                    player.playVideo(); 
+                } else {
+                    showToast("Carregando Player...", "info");
+                    setTimeout(() => { if(player) { player.loadVideoById(h.videoID); player.playVideo(); } }, 1000);
+                }
+            }
+
+            // CONTROLE REMOTO: Envia para o Firebase
+            const user = firebase.auth().currentUser;
+            if(user) {
+                firebase.database().ref(`usuarios/${user.uid}/aoVivo`).set({
+                    hino: { ...h, id: id },
+                    timestamp: Date.now()
+                });
+            }
+        }
+
+        // --- MANIPULAÇÃO DE DADOS ---
+        function transporEditor(semitons) {
+            const txt = document.getElementById('nova-letra'); 
+            let texto = txt.value.replace(/\[([A-G][#b]?)(.*?)\]/g, (match, nota, comp) => {
+                let idx = notasMusicais.indexOf(nota.toUpperCase());
+                if(idx === -1) return match;
+                let nIdx = (idx + semitons + 12) % 12; return `[${notasMusicais[nIdx]}${comp}]`;
+            });
+            txt.value = texto;
+            const campo = document.getElementById('novo-tom');
+            if(campo.value) {
+                let idx = notasMusicais.indexOf(campo.value.toUpperCase().trim());
+                if(idx !== -1) campo.value = notasMusicais[(idx + semitons + 12) % 12];
+            }
+            showToast(`Transposto ${semitons > 0 ? '+' : ''}${semitons/2} Tom`);
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'tab-dados') document.querySelectorAll('.tab-btn')[0].classList.add('active'); 
+            else document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        }
+
+        function salvarEscalaAtual() {
+            const arr = []; Object.keys(hinosData).forEach(id => { if(hinosData[id].setlist) arr.push({ id: id, ordem: hinosData[id].ordem || 0 }); });
+            if(arr.length === 0) { showToast("Setlist vazio!", "error"); return; }
+            const nome = prompt("Nome da Escala:"); if(!nome) return;
+            firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas`).push({ nome: nome, data: new Date().toISOString(), musicas: arr, totalMusicas: arr.length }).then(() => { showToast("Salvo!"); toggleConfig(); });
+        }
+        function abrirHistoricoEscalas() { toggleConfig(); document.getElementById('modal-historico').style.display = 'flex'; carregarListaHistorico(); }
+        function carregarListaHistorico() {
+            const c = document.getElementById('lista-historico'); c.innerHTML = 'Carregando...';
+            firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas`).once('value').then(s => {
+                const d = s.val(); if(!d) { c.innerHTML = 'Vazio.'; return; }
+                let h = ''; Object.keys(d).map(k=>({...d[k], id:k})).reverse().forEach(e => {
+                    h += `<div class="historico-item"><div class="historico-info"><h4>${e.nome}</h4><small>${new Date(e.data).toLocaleDateString()} • ${e.totalMusicas}</small></div><div><button onclick="carregarEscala('${e.id}')" class="btn-save-main">CARREGAR</button><button onclick="excluirEscala('${e.id}')" style="border:none;background:none;color:red;"><i class="fas fa-trash"></i></button></div></div>`;
+                }); c.innerHTML = h;
+            });
+        }
+        function carregarEscala(id) { if(!confirm("Carregar?")) return; firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas/${id}`).once('value').then(s=>{ const e=s.val(); if(!e)return; const u={}; Object.keys(hinosData).forEach(k=>u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${k}/setlist`]=false); e.musicas.forEach(m=>{if(hinosData[m.id]) { u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/setlist`]=true; u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/ordem`]=m.ordem; }}); firebase.database().ref().update(u).then(()=>{showToast("Carregado!"); document.getElementById('modal-historico').style.display='none';}); }); }
+        function excluirEscala(id) { if(confirm("Apagar?")) firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas/${id}`).remove().then(()=>carregarListaHistorico()); }
+        function limparSetlistGeral() { if (confirm("Limpar?")) { const u={}; Object.keys(hinosData).forEach(id=>{if(hinosData[id].setlist) u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${id}/setlist`]=false;}); firebase.database().ref().update(u).then(()=>{toggleConfig(); showToast("Limpo!");}); } }
+        function compartilharEscala() { let t="*ESCALA*\n\n", c=1; Object.keys(hinosData).map(k=>hinosData[k]).filter(h=>h.setlist).sort((a,b)=>(a.ordem||0)-(b.ordem||0)).forEach(h=>{t+=`${c}. *${h.nome}* (${h.tom||'--'})\n`;c++}); window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`); }
+        function renderizarAbas() { const c=document.getElementById('category-tabs'); c.innerHTML=`<button class="cat-btn active" onclick="filtrar('todos', this)">TODOS</button>`; Object.keys(categoriasUsuario).forEach(k=>{if(categoriasUsuario[k].fixada)c.innerHTML+=`<button class="cat-btn" onclick="filtrar('${k}', this)">${categoriasUsuario[k].nome}</button>`}); c.innerHTML+=`<button class="cat-btn" onclick="filtrar('setlist', this)">SETLIST</button>`; }
+        function renderizarHinos(f=filtroAtual) { if(sortableInstance){try{sortableInstance.destroy()}catch(e){} sortableInstance=null;} const l=document.getElementById('songList'); if(!l)return; l.innerHTML=''; playlistAtual=[]; let arr=Object.keys(hinosData).map(k=>({...hinosData[k], id:k})).sort((a,b)=>(a.ordem||0)-(b.ordem||0)); arr.forEach(h=>{ if(f==='todos'||f===h.categoria||(f==='setlist'&&h.setlist)) { playlistAtual.push(h); let hd=f==='setlist'?`<div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>`:''; l.innerHTML+=`<div class="song-card" data-id="${h.id}" onclick="tocarNoPlayer('${h.id}')">${hd}<div class="song-info"><div class="play-circle"><i class="fas fa-play"></i></div><div class="song-details"><h3>${h.nome}</h3><p>${h.artista} • <span>${h.tom||'--'}</span></p></div></div><div class="song-actions"><button class="action-btn btn-view" onclick="event.stopPropagation(); abrirTelaCheia('${h.id}')"><i class="fas fa-expand-alt"></i></button><button class="action-btn btn-edit" onclick="event.stopPropagation(); prepararEdicao('${h.id}')"><i class="fas fa-pen"></i></button><button class="action-btn btn-delete" onclick="event.stopPropagation(); excluirHino('${h.id}')"><i class="fas fa-trash"></i></button></div></div>`; } }); if(f==='setlist') sortableInstance = new Sortable(l, {animation:150, handle:'.drag-handle', onEnd: salvarOrdemSetlist}); }
+        function salvarOrdemSetlist() { const u={}; Array.from(document.getElementById('songList').children).forEach((c,i)=>u[c.dataset.id+'/ordem']=i); db.update(u); }
+
+        function togglePlayPause() { 
+            const h=JSON.parse(localStorage.getItem('hino_atual')); const at=document.getElementById('main-audio-player'); const ic=document.getElementById('sp-play-icon');
+            if(h && h.audioUrl){ if(at.paused){at.play();ic.className="fas fa-pause";}else{at.pause();ic.className="fas fa-play";} } 
+            else if(player){ player.getPlayerState()==1?player.pauseVideo():player.playVideo(); } 
+        }
+        function formatTime(s) { const m=Math.floor(s/60), g=Math.floor(s%60); return m+":"+(g<10?"0"+g:g); }
+        function iniciarProgressoAudio() { const at=document.getElementById('main-audio-player'); at.ontimeupdate=()=>{ checkLoop(at.currentTime); document.getElementById('progress-bar-fill').style.width=(at.currentTime/at.duration*100)+"%"; document.getElementById('time-current').innerText=formatTime(at.currentTime); document.getElementById('time-total').innerText=formatTime(at.duration); if(at.ended&&!isLooping) proximaMusica(); }; }
+        function seek(e) { const r=e.currentTarget.getBoundingClientRect(), p=(e.clientX-r.left)/r.width; const at=document.getElementById('main-audio-player'); if(at.src) at.currentTime=p*at.duration; else if(player) player.seekTo(p*player.getDuration()); }
+        
+        var tag=document.createElement('script'); tag.src="https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
+        // CONFIGURAÇÃO DO YOUTUBE COM ORIGEM CORRETA
+        function onYouTubeIframeAPIReady() { 
+            player=new YT.Player('yt-api-container', { 
+                height:'0', width:'0', 
+                playerVars: { 'origin': window.location.origin },
+                events:{'onStateChange':onPlayerStateChange} 
+            }); 
+        }
+        function onPlayerStateChange(e) { 
+            const ic=document.getElementById('sp-play-icon'); 
+            if(e.data==YT.PlayerState.PLAYING) { 
+                ic.className="fas fa-pause"; 
+                setInterval(()=>{ if(!player)return; const c=player.getCurrentTime(); checkLoop(c); document.getElementById('progress-bar-fill').style.width=(c/player.getDuration()*100)+"%"; document.getElementById('time-current').innerText=formatTime(c); document.getElementById('time-total').innerText=formatTime(player.getDuration()); }, 500); 
+            } else { ic.className="fas fa-play"; if(e.data==YT.PlayerState.ENDED&&!isLooping) proximaMusica(); } 
+        }
+
+        function fecharModal() { document.getElementById('modal-cadastro').style.display='none'; idEdicao=null; }
+        function abrirModal() { switchTab('tab-dados'); document.getElementById('modal-cadastro').style.display='flex'; }
+        function prepararEdicao(id) { idEdicao=id; const h=hinosData[id]; document.getElementById('novo-nome').value=h.nome; document.getElementById('novo-artista').value=h.artista; document.getElementById('novo-tom').value=h.tom; document.getElementById('novo-bpm').value=h.bpm||""; document.getElementById('nova-categoria').value=h.categoria; document.getElementById('novo-video').value=h.videoID||""; document.getElementById('nova-letra').value=h.letra; document.getElementById('check-setlist').checked=h.setlist; abrirModal(); }
+        async function salvarHino() {
+            const btn=document.getElementById('btn-salvar-hino'); const af=document.getElementById('novo-audio').files[0]; const n=document.getElementById('novo-nome').value;
+            if(!n){showToast("Nome obrigatório!","error");return;} btn.disabled=true; btn.innerText="PROCESSANDO...";
+            try { let u=""; if(af){const fd=new FormData(); fd.append('file',af); fd.append('upload_preset',UPLOAD_PRESET); showToast("Enviando áudio..."); const r=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd}); const d=await r.json(); u=d.secure_url;}
+            const h={nome:n.toUpperCase(), artista:document.getElementById('novo-artista').value, tom:document.getElementById('novo-tom').value.toUpperCase(), bpm:document.getElementById('novo-bpm').value, categoria:document.getElementById('nova-categoria').value, videoID:extrairID(document.getElementById('novo-video').value), audioUrl:u||(idEdicao&&hinosData[idEdicao].audioUrl?hinosData[idEdicao].audioUrl:""), letra:document.getElementById('nova-letra').value, setlist:document.getElementById('check-setlist').checked};
+            if(idEdicao) await db.child(idEdicao).update(h); else await db.push(h); fecharModal(); showToast("Salvo!"); } catch(e){showToast(e.message,"error");} finally{btn.disabled=false; btn.innerText="SALVAR";}
+        }
+        function extrairID(u){if(!u)return"";const m=u.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?)\??v?=?([^#&?]*)).*/);return(m&&m[7].length===11)?m[7]:u;}
+        function proximaMusica(){indexAtual=isShuffle?Math.floor(Math.random()*playlistAtual.length):(indexAtual+1)%playlistAtual.length;tocarNoPlayer(playlistAtual[indexAtual].id);}
+        function musicaAnterior(){indexAtual=(indexAtual-1+playlistAtual.length)%playlistAtual.length;tocarNoPlayer(playlistAtual[indexAtual].id);}
+        function toggleShuffle(){isShuffle=!isShuffle;document.getElementById('btn-shuffle').style.color=isShuffle?"var(--primary-color)":"white";}
+        function toggleRepeat(){isRepeat=!isRepeat;document.getElementById('btn-repeat').style.color=isRepeat?"var(--primary-color)":"white";}
+        function toggleConfig(){const p=document.getElementById('config-panel');p.style.display=p.style.display==='block'?'none':'block';}
+        function mudarTema(c){document.documentElement.style.setProperty('--primary-color',c);}
+        function sair(){firebase.auth().signOut().then(()=>window.location.href='login.html');}
+        function abrirModoPalcoPlayer(){window.location.href='hino.html';}
+        function abrirTelaCheia(id){localStorage.setItem('hino_atual',JSON.stringify({...hinosData[id],id}));window.location.href='hino.html';}
+        function excluirHino(id){if(confirm("Apagar?"))db.child(id).remove().then(()=>showToast("Apagado.","info"));}
+        function buscar(){const t=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('.song-card').forEach(c=>c.style.display=c.innerText.toLowerCase().includes(t)?"flex":"none");}
+        function filtrar(c,b){filtroAtual=c;document.querySelectorAll('.cat-btn').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');renderizarHinos(c);}
+        function abrirGerenciadorPlaylists(){document.getElementById('modal-playlists').style.display='flex';}
+        function fecharGerenciador(){document.getElementById('modal-playlists').style.display='none';}
+        function criarPlaylist(){const n=document.getElementById('nova-playlist-nome').value.toUpperCase();if(!n)return;firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/configuracoes/categorias/cat_${Date.now()}`).set({nome:n,fixada:true}).then(()=>{showToast("Criada!");document.getElementById('nova-playlist-nome').value="";});}
+        function atualizarSelectCategorias(){const s=document.getElementById('nova-categoria');s.innerHTML='';Object.keys(categoriasUsuario).forEach(k=>s.innerHTML+=`<option value="${k}">${categoriasUsuario[k].nome}</option>`);}
+        
+        let metronomoInterval, metronomoAtivo=false; const audioContext=new(window.AudioContext||window.webkitAudioContext)();
+        function playClick(){const o=audioContext.createOscillator(),g=audioContext.createGain();o.connect(g);g.connect(audioContext.destination);o.frequency.value=1000;g.gain.value=1;o.start();g.gain.exponentialRampToValueAtTime(0.001,audioContext.currentTime+0.1);o.stop(audioContext.currentTime+0.1);}
+        function toggleMetronomo(){const h=JSON.parse(localStorage.getItem('hino_atual'));if(!h||!h.bpm){showToast("Sem BPM!","info");return;}const b=document.getElementById('btn-metronomo'),bpm=parseInt(h.bpm);if(metronomoAtivo){clearInterval(metronomoInterval);metronomoAtivo=false;b.style.color="#888";b.classList.remove('fa-spin');}else{if(audioContext.state==='suspended')audioContext.resume();playClick();metronomoInterval=setInterval(playClick,60000/bpm);metronomoAtivo=true;b.style.color="var(--primary-color)";showToast(`Metrônomo: ${bpm} BPM`);}}
+        function atualizarDisplayBPM(h){if(metronomoAtivo)toggleMetronomo();const d=document.getElementById('display-bpm');if(h&&h.bpm){d.innerText=h.bpm+" BPM";}else{d.innerText="-- BPM";}}
     </script>
 </body>
 </html>

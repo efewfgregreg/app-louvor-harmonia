@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Harmonia</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #00bcd4;
+            --bg-dark: #050505;
+        }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            background: #000; font-family: 'Nunito Sans', sans-serif;
+            overflow: hidden; position: relative;
+        }
+
+        /* Fundo Aurora (Igual ao Palco) */
+        .aurora-bg {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            background: radial-gradient(circle at 50% 100%, #1a1a1a 0%, #000 70%); 
+            z-index: 1;
+        }
+        
+        .particles {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background-image: radial-gradient(rgba(0, 188, 212, 0.1) 1px, transparent 1px);
+            background-size: 30px 30px; opacity: 0.3; z-index: 2;
+        }
+
+        /* Container de Vidro */
+        .login-card {
+            position: relative; z-index: 10;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 40px; border-radius: 20px;
+            width: 100%; max-width: 380px;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .brand { margin-bottom: 30px; }
+        .brand i { font-size: 2.5rem; color: var(--primary-color); filter: drop-shadow(0 0 10px rgba(0,188,212,0.4)); }
+        .brand h1 { margin: 10px 0 0; font-family: 'Oswald', sans-serif; letter-spacing: 3px; color: #fff; font-size: 2rem; }
+        .brand p { margin: 5px 0 0; color: #888; font-size: 0.85rem; letter-spacing: 1px; }
+
+        /* Inputs Modernos */
+        .input-group { position: relative; margin-bottom: 20px; text-align: left; }
+        
+        .input-field {
+            width: 100%; padding: 14px 14px 14px 45px;
+            background: rgba(0,0,0,0.3); border: 1px solid #333;
+            border-radius: 10px; color: #fff; font-size: 1rem;
+            box-sizing: border-box; transition: 0.3s;
+            font-family: 'Nunito Sans';
+        }
+
+        .input-field:focus {
+            border-color: var(--primary-color);
+            background: rgba(0, 188, 212, 0.05);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(0, 188, 212, 0.1);
+        }
+
+        .input-icon {
+            position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+            color: #666; transition: 0.3s;
+        }
+
+        .input-field:focus + .input-icon { color: var(--primary-color); }
+        
+        .toggle-pass {
+            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+            color: #666; cursor: pointer; transition: 0.3s;
+        }
+        .toggle-pass:hover { color: #fff; }
+
+        /* Botão Principal */
+        .btn-login {
+            width: 100%; padding: 14px;
+            background: linear-gradient(90deg, #00bcd4, #00acc1);
+            border: none; border-radius: 10px;
+            color: #000; font-weight: bold; font-family: 'Oswald'; font-size: 1rem; letter-spacing: 1px;
+            cursor: pointer; transition: 0.3s; margin-top: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 188, 212, 0.3); filter: brightness(1.1); }
+        .btn-login:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* Links e Rodapé */
+        .auth-actions { margin-top: 25px; display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; }
+        .auth-actions a { text-decoration: none; transition: 0.2s; }
+        
+        .link-primary { color: var(--primary-color); font-weight: bold; cursor: pointer; }
+        .link-primary:hover { text-decoration: underline; }
+        
+        .link-secondary { color: #666; cursor: pointer; }
+        .link-secondary:hover { color: #aaa; }
+
+        /* Spinner de Carregamento */
+        .spinner {
+            width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.1);
+            border-left-color: #000; border-radius: 50%;
+            animation: spin 1s linear infinite; display: none;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="aurora-bg"></div>
+    <div class="particles"></div>
+
+    <div class="login-card">
+        <div class="brand">
+            <i class="fas fa-music"></i>
+            <h1>HARMONIA</h1>
+            <p id="auth-subtitle">Faça login para gerenciar seu repertório</p>
+        </div>
+
+        <div class="input-group">
+            <input type="email" id="email" class="input-field" placeholder="Seu e-mail">
+            <i class="fas fa-envelope input-icon"></i>
+        </div>
+        
+        <div class="input-group">
+            <input type="password" id="password" class="input-field" placeholder="Sua senha">
+            <i class="fas fa-lock input-icon"></i>
+            <i class="fas fa-eye toggle-pass" onclick="mostrarSenha()" id="eye-icon"></i>
+        </div>
+
+        <button onclick="processarAuth()" id="btn-main" class="btn-login">
+            <span id="btn-text">ENTRAR</span>
+            <div class="spinner" id="btn-spinner"></div>
+        </button>
+        
+        <div class="auth-actions">
+            <a onclick="toggleMode()" class="link-primary" id="toggle-text">Não tem conta? Crie agora</a>
+            <a onclick="recuperarSenha()" class="link-secondary">Esqueceu a senha?</a>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCgOKQuVYJrWkZpWcFi-aGnLMW1XkI3Nw",
+            authDomain: "harmonia-louvor.firebaseapp.com",
+            projectId: "harmonia-louvor",
+            storageBucket: "harmonia-louvor.firebasestorage.app",
+            messagingSenderId: "779206372812",
+            appId: "1:779206372812:web:006ee8e474bf2d8cf0c169"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        let isLoginMode = true;
+
+        // Verifica se já está logado
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                showToast("Bem-vindo de volta!", "success");
+                setTimeout(() => window.location.href = 'index.html', 1000);
+            }
+        });
+
+        // Alternar Login / Cadastro
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            const title = isLoginMode ? "ENTRAR" : "CADASTRAR";
+            const sub = isLoginMode ? "Faça login para gerenciar seu repertório" : "Crie sua conta e organize seu louvor";
+            const toggle = isLoginMode ? "Não tem conta? Crie agora" : "Já tem conta? Faça login";
+
+            document.getElementById('btn-text').innerText = title;
+            document.getElementById('auth-subtitle').innerText = sub;
+            document.getElementById('toggle-text').innerText = toggle;
+            
+            // Animação leve
+            const card = document.querySelector('.login-card');
+            card.style.animation = 'none';
+            card.offsetHeight; /* trigger reflow */
+            card.style.animation = 'slideUp 0.4s ease';
+        }
+
+        // Mostrar Senha
+        function mostrarSenha() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = "password";
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        // Login / Cadastro
+        function processarAuth() {
+            const email = document.getElementById('email').value.trim();
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('btn-main');
+            const spinner = document.getElementById('btn-spinner');
+            const btnText = document.getElementById('btn-text');
+
+            if (!email || !pass) return showToast("Preencha todos os campos!", "error");
+
+            // Estado de Carregamento
+            btn.disabled = true;
+            spinner.style.display = "block";
+            btnText.innerText = "PROCESSANDO...";
+
+            if (isLoginMode) {
+                firebase.auth().signInWithEmailAndPassword(email, pass)
+                    .then(() => {
+                        // Sucesso é tratado pelo onAuthStateChanged
+                    })
+                    .catch(err => {
+                        handleError(err);
+                        resetBtn();
+                    });
+            } else {
+                firebase.auth().createUserWithEmailAndPassword(email, pass)
+                    .then(() => {
+                        showToast("Conta criada com sucesso!", "success");
+                        // Sucesso redireciona auto
+                    })
+                    .catch(err => {
+                        handleError(err);
+                        resetBtn();
+                    });
+            }
+        }
+
+        function resetBtn() {
+            const btn = document.getElementById('btn-main');
+            const spinner = document.getElementById('btn-spinner');
+            const btnText = document.getElementById('btn-text');
+            btn.disabled = false;
+            spinner.style.display = "none";
+            btnText.innerText = isLoginMode ? "ENTRAR" : "CADASTRAR";
+        }
+
+        // Recuperar Senha
+        function recuperarSenha() {
+            const email = document.getElementById('email').value.trim();
+            if(!email) return showToast("Digite seu e-mail no campo acima primeiro!", "info");
+            
+            const btn = document.getElementById('btn-main');
+            btn.disabled = true;
+            
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    showToast("E-mail de recuperação enviado! Verifique o SPAM.", "success");
+                    btn.disabled = false;
+                })
+                .catch(err => {
+                    handleError(err);
+                    btn.disabled = false;
+                });
+        }
+
+        // Tratamento de Erros Bonito
+        function handleError(error) {
+            let msg = "Ocorreu um erro.";
+            if(error.code === 'auth/wrong-password') msg = "Senha incorreta.";
+            if(error.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+            if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
+            if(error.code === 'auth/invalid-email') msg = "E-mail inválido.";
+            if(error.code === 'auth/weak-password') msg = "A senha deve ter pelo menos 6 caracteres.";
+            showToast(msg, "error");
+        }
+
+        // Notificação Toastify
+        function showToast(msg, tipo = "info") {
+            let bg = "#333";
+            if (tipo === "error") bg = "#ff4444";
+            if (tipo === "success") bg = "#00C851";
+
+            Toastify({
+                text: msg,
+                duration: 3000,
+                close: true,
+                gravity: "top", 
+                position: "center", 
+                backgroundColor: bg,
+                stopOnFocus: true,
+                style: {
+                    borderRadius: "10px",
+                    fontWeight: "bold",
+                    boxShadow: "0 4px 15px rgba(0,0,0,0.3)"
+                }
+            }).showToast();
+        }
+
+        // Atalho Enter
+        document.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') processarAuth();
+        });
+    </script>
+</body>
+</html>
