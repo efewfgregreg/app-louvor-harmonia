@@ -64,12 +64,12 @@
         }
         @keyframes slideIn { from { opacity: 0; transform: scale(0.95) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-        /* === MODO 3: LEITURA (NOVA ABA DEDICADA) === */
+        /* === MODO 3: LEITURA (LIMPO) === */
         .mode-reading {
             display: block !important; 
             overflow-y: auto !important; 
-            background-color: #050505; 
-            padding: 100px 20px 150px 20px; 
+            background-color: #000; /* Fundo preto total */
+            padding: 80px 20px 50px 20px; /* Menos padding embaixo pois footer some */
             box-sizing: border-box;
             text-align: center; 
         }
@@ -89,7 +89,6 @@
             white-space: pre-wrap;
         }
         
-        /* Espaço para quando há quebra de linha dupla */
         .reading-empty-line { height: 20px; }
 
         .chord { display: block; font-size: 60%; color: var(--primary-color); margin-bottom: 8px; font-family: 'Oswald'; opacity: 1; font-weight: normal; letter-spacing: 1px; }
@@ -100,6 +99,7 @@
             background: rgba(15, 15, 15, 0.98); backdrop-filter: blur(20px);
             padding: 10px 20px; border-radius: 60px; border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 20px 60px rgba(0,0,0,0.9); display: flex; align-items: center; gap: 15px; z-index: 200;
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
         .control-section { display: flex; align-items: center; gap: 8px; }
         .divider { width: 1px; height: 35px; background: rgba(255,255,255,0.1); }
@@ -131,6 +131,45 @@
 
         #media-engine { display: none; }
         
+        /* === ESTILOS ESPECÍFICOS PARA O MODO LIMPO (LEITURA) === */
+        /* Esconde o rodapé inteiro */
+        body.clean-interface .stage-controls { display: none !important; }
+        
+        /* Esconde elementos do topo, exceto o botão de voltar */
+        body.clean-interface .header-info,
+        body.clean-interface .bpm-box,
+        body.clean-interface #btn-cifras-toggle { display: none !important; }
+        
+        /* Deixa o header transparente e permite clicar através dele */
+        body.clean-interface .stage-header { 
+            background: transparent; 
+            pointer-events: none; 
+            box-shadow: none;
+        }
+        
+        /* O botão de voltar precisa continuar clicável e visível */
+        body.clean-interface .stage-header a.btn-stage {
+            pointer-events: auto;
+            background: rgba(20, 20, 20, 0.7); /* Fundo sutil para contraste */
+            backdrop-filter: blur(5px);
+            width: 45px; height: 45px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Botão flutuante para SAIR do modo leitura (caso o usuário queira trocar de modo sem sair da tela) */
+        #btn-exit-reading {
+            display: none; /* Escondido por padrão */
+            position: fixed; bottom: 30px; right: 30px;
+            background: rgba(20, 20, 20, 0.8); color: #fff;
+            padding: 10px 20px; border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.8rem; font-weight: bold;
+            z-index: 5000; cursor: pointer;
+        }
+        body.clean-interface #btn-exit-reading { display: block; }
+
         @media (max-width: 768px) {
             .stage-controls { width: 90%; justify-content: space-between; gap: 5px; bottom: 20px; padding: 10px 15px; }
             .btn-stage { width: 38px; height: 38px; font-size: 1rem; }
@@ -197,9 +236,7 @@
                     <span id="slide-count" style="font-size:1.1rem; font-weight:bold; color:#fff; min-width:60px; text-align:center;">1/1</span>
                     <button onclick="nextSlide()" class="btn-nav-slide" title="Próximo"><i class="fas fa-chevron-right"></i></button>
                 </div>
-                <div id="controls-reading" style="display:none; color:#888; font-size:0.7rem; text-transform:uppercase; font-weight:bold;">
-                    MODO LEITURA
-                </div>
+                <div id="controls-reading" style="display:none;"></div>
             </div>
             
             <div class="divider"></div>
@@ -213,6 +250,10 @@
                 <button onclick="cycleFontSize()" class="btn-stage" style="margin-left:5px;" title="Tamanho Letra"><i class="fas fa-text-height"></i></button>
             </div>
         </footer>
+        
+        <button id="btn-exit-reading" onclick="toggleViewMode()">
+            <i class="fas fa-eye"></i> SAIR DO MODO LEITURA
+        </button>
     </div>
 
     <div id="media-engine"><div id="yt-player"></div><audio id="audio-player"></audio></div>
@@ -231,7 +272,6 @@
         };
 
         let hino = null, letraOriginal = "", letraLeitura = "", scrollInterval, playerType = null, ytPlayerObj = null;
-        
         const fontSizes = ['4vh', '6vh', '8vh', '11vh']; 
 
         window.onload = () => {
@@ -257,7 +297,6 @@
             document.getElementById('bpm-display').innerText = (hino.bpm || "--") + " BPM";
             
             letraOriginal = hino.letra || "";
-            // Carrega a letra limpa se existir
             letraLeitura = hino.letraLeitura || "";
             
             const tomSalvo = hino.tom ? hino.tom.toUpperCase() : "C";
@@ -310,8 +349,10 @@
             scrollInterval = null;
             document.getElementById('btn-scroll').classList.remove('btn-active');
             
+            // Reseta classes e estilos
             area.className = ''; 
-            
+            document.body.classList.remove('clean-interface'); // Remove classe de limpeza por padrão
+
             if(state.viewMode === 'scroll') {
                 area.classList.add('mode-scroll'); area.scrollTop = 0;
                 btnMode.innerHTML = '<i class="fas fa-scroll"></i>'; 
@@ -326,6 +367,9 @@
                 state.currentSlide = 0; 
                 renderizarSlide();
             } else if (state.viewMode === 'reading') {
+                // MODO LEITURA: ATIVA A LIMPEZA DA INTERFACE
+                document.body.classList.add('clean-interface');
+                
                 area.classList.add('mode-reading');
                 btnMode.innerHTML = '<i class="fas fa-book-open"></i>';
                 ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'none'; ctrlReading.style.display = 'block';
@@ -335,14 +379,13 @@
             document.getElementById('current-tone').innerText = notas[state.tomIndex];
         }
 
-        // --- MODO LEITURA (USANDO O CAMPO NOVO OU FALLBACK) ---
+        // --- MODO LEITURA ---
         function renderizarLeitura() {
             const container = document.getElementById('lyrics-content');
             const readingSizes = ['1rem', '1.2rem', '1.5rem', '1.8rem'];
             const size = readingSizes[state.fontIndex] || '1.2rem';
             let html = `<div class="reading-container">`;
 
-            // SE EXISTIR LETRA DE LEITURA (NOVA), USA ELA DIRETO
             if (letraLeitura && letraLeitura.trim() !== "") {
                 const linhas = letraLeitura.split('\n');
                 linhas.forEach(l => {
@@ -353,14 +396,12 @@
                     }
                 });
             } else {
-                // FALLBACK: TENTA LIMPAR A LETRA ANTIGA SE NÃO HOUVER A NOVA
                 const linhas = letraOriginal.split('\n');
                 linhas.forEach(l => {
                     if (l.includes(MANUAL_SEPARATOR)) return; 
                     if (l.trim() === "") {
                         html += `<div class="reading-empty-line"></div>`; 
                     } else {
-                        // Remove cifras [C]
                         let linhaLimpa = l.replace(/\[.*?\]/g, "").trim();
                         if(linhaLimpa !== "") {
                             html += `<div class="reading-line" style="font-size:${size}">${linhaLimpa}</div>`;
@@ -469,7 +510,7 @@
             state.tomIndex = (state.tomIndex + d + 12) % 12; 
             if(state.viewMode === 'scroll') renderizarScroll();
             else if(state.viewMode === 'slide') renderizarSlide();
-            else renderizarLeitura(); // Leitura não muda tom, mas pode ser chamada para renderizar se precisar
+            else renderizarLeitura();
         }
         
         function carregarMidia() {
