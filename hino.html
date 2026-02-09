@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Harmonia - Palco Pro</title>
+    <title>Harmonia - Player</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* --- ESTRUTURA GERAL (VISUAL CLASSICO RESTAURADO) --- */
+        /* --- ESTRUTURA GERAL --- */
         body { 
             overflow: hidden; background: #000; color: #fff; height: 100vh; margin: 0; font-family: 'Nunito Sans', sans-serif;
         }
 
-        /* Fundo Original "Working Version" */
+        /* Fundo "Aurora" (Apenas para modo Palco) */
         .aurora-bg {
             position: absolute; width: 100%; height: 100%; top: 0; left: 0;
             background: radial-gradient(circle at 50% 100%, #111 0%, #000 90%); 
-            z-index: -1;
+            z-index: -1; transition: opacity 0.5s;
         }
 
         #stage-container { display: flex; flex-direction: column; height: 100vh; position: relative; }
@@ -25,16 +25,17 @@
         .stage-header {
             display: flex; align-items: center; justify-content: space-between; padding: 20px 30px; z-index: 100;
             background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); position: absolute; top:0; width: 100%; box-sizing: border-box;
+            transition: all 0.3s;
         }
         .header-info h2 { margin: 0; font-family: 'Oswald'; text-transform: uppercase; letter-spacing: 2px; font-size: 1.4rem; color: #fff; text-shadow: 0 0 10px rgba(0,188,212,0.5); }
 
-        /* --- ÁREA DA LETRA --- */
+        /* --- ÁREA DE CONTEÚDO --- */
         #lyrics-area {
             flex: 1; height: 100vh; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         }
 
-        /* MODO SCROLL - Estilo Original */
+        /* === MODO 1: SCROLL (PALCO) === */
         .mode-scroll {
             display: block !important; overflow-y: auto !important; text-align: center;
             -webkit-mask-image: linear-gradient(transparent 5%, black 20%, black 80%, transparent 95%);
@@ -44,31 +45,52 @@
         .mode-scroll::-webkit-scrollbar { display: none; }
         
         .lyric-line {
-            line-height: 1.4; font-weight: 800; color: rgba(255,255,255,0.2); /* Inativo escuro */
+            line-height: 1.4; font-weight: 800; color: rgba(255,255,255,0.2);
             transition: all 0.4s ease; margin-bottom: 30px; max-width: 1200px; margin-left: auto; margin-right: auto;
             text-transform: uppercase; letter-spacing: -1px; transform: scale(0.95); filter: blur(2px);
         }
         .lyric-line.active-line { color: #fff; transform: scale(1.05); filter: blur(0); text-shadow: 0 0 30px rgba(255,255,255,0.3); }
 
-        /* MODO SLIDE */
+        /* === MODO 2: SLIDE (PROJEÇÃO) === */
         .mode-slide {
             width: 100%; padding: 100px 40px 140px 40px; box-sizing: border-box;
             display: flex; align-items: center; justify-content: center; height: 100%;
         }
-        
-        .slide-block {
-            display: none; text-align: center; width: 100%;
-            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+        .slide-block { display: none; text-align: center; width: 100%; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .slide-block.active-slide { display: block; }
-        
         .slide-text {
             font-weight: 800; line-height: 1.6; text-transform: uppercase;
-            text-shadow: 0 10px 40px rgba(0,0,0,0.9); white-space: pre-wrap;
-            max-width: 1400px; margin: 0 auto;
+            text-shadow: 0 10px 40px rgba(0,0,0,0.9); white-space: pre-wrap; max-width: 1400px; margin: 0 auto;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: scale(0.95) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+        /* === MODO 3: LEITURA (NOVA ABA DEDICADA) === */
+        .mode-reading {
+            display: block !important; 
+            overflow-y: auto !important; 
+            background-color: #050505; 
+            padding: 100px 20px 150px 20px; 
+            box-sizing: border-box;
+            text-align: center; 
+        }
+        
+        .reading-container {
+            max-width: 600px; 
+            margin: 0 auto;
+            text-align: left; 
         }
 
-        @keyframes slideIn { from { opacity: 0; transform: scale(0.95) translateY(30px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .reading-line {
+            line-height: 1.8;
+            color: #e0e0e0;
+            margin-bottom: 8px;
+            font-weight: 400;
+            font-family: 'Nunito Sans', sans-serif; 
+            white-space: pre-wrap;
+        }
+        
+        /* Espaço para quando há quebra de linha dupla */
+        .reading-empty-line { height: 20px; }
 
         .chord { display: block; font-size: 60%; color: var(--primary-color); margin-bottom: 8px; font-family: 'Oswald'; opacity: 1; font-weight: normal; letter-spacing: 1px; }
 
@@ -91,10 +113,7 @@
         .btn-play-music { width: 55px; height: 55px; background: var(--primary-color); color: #000; font-size: 1.4rem; box-shadow: 0 0 25px rgba(0,188,212,0.3); border-radius: 50%; transition: 0.2s; border:none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .btn-play-music:hover { transform: scale(1.1); box-shadow: 0 0 40px rgba(0,188,212,0.5); }
         
-        .btn-nav-slide {
-            width: 55px; height: 55px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15);
-            background: rgba(255,255,255,0.05); color: #fff; font-size: 1.4rem; cursor: pointer; transition: 0.2s;
-        }
+        .btn-nav-slide { width: 55px; height: 55px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; font-size: 1.4rem; cursor: pointer; transition: 0.2s; }
         .btn-nav-slide:hover { background: var(--primary-color); border-color: var(--primary-color); color: #000; transform: scale(1.1); }
         
         .mini-progress { width: 70px; height: 4px; background: #333; border-radius: 2px; overflow: hidden; cursor: pointer; display: flex; margin-bottom: 3px; }
@@ -111,11 +130,21 @@
         .led.flash { background: #ff4444; box-shadow: 0 0 15px #ff4444; transform: scale(1.4); }
 
         #media-engine { display: none; }
+        
+        @media (max-width: 768px) {
+            .stage-controls { width: 90%; justify-content: space-between; gap: 5px; bottom: 20px; padding: 10px 15px; }
+            .btn-stage { width: 38px; height: 38px; font-size: 1rem; }
+            .mini-progress { width: 50px; }
+            .tone-box b { font-size: 1.2rem; }
+            .reading-container { padding: 0 10px; }
+        }
     </style>
 </head>
 <body>
-    <div class="aurora-bg"></div> <div id="stage-container">
-        <header class="stage-header">
+    <div class="aurora-bg" id="bg-effect"></div> 
+    
+    <div id="stage-container">
+        <header class="stage-header" id="top-header">
             <div style="display: flex; align-items: center; gap: 20px;">
                 <a href="index.html" class="btn-stage" title="Voltar"><i class="fas fa-arrow-left"></i></a>
                 <div class="header-info">
@@ -125,12 +154,8 @@
             </div>
             
             <div style="display:flex; gap:15px; align-items:center;">
-                <button onclick="toggleCifras()" class="btn-stage" title="Mostrar/Esconder Cifras (Tecla C)" style="width:auto; padding:0 15px; border-radius:20px; font-size:0.8rem; gap:8px; border:1px solid rgba(255,255,255,0.1);">
+                <button id="btn-cifras-toggle" onclick="toggleCifras()" class="btn-stage" title="Mostrar/Esconder Cifras (Tecla C)" style="width:auto; padding:0 15px; border-radius:20px; font-size:0.8rem; gap:8px; border:1px solid rgba(255,255,255,0.1);">
                     <i class="fas fa-guitar"></i> <span id="txt-cifra-status">CIFRAS ON</span>
-                </button>
-
-                <button onclick="exportarProPresenter()" class="btn-stage" title="Exportar para ProPresenter" style="width:auto; padding:0 15px; border-radius:20px; font-size:0.8rem; gap:8px;">
-                    <i class="fas fa-file-export"></i> EXP
                 </button>
 
                 <div class="bpm-box" title="Metrônomo Visual">
@@ -157,12 +182,12 @@
             <div class="divider"></div>
 
             <div class="control-section">
-                <button onclick="toggleViewMode()" id="btn-mode-switch" class="btn-stage" title="Alternar: Rolagem ou Slide">
-                    <i class="fas fa-sync-alt"></i>
+                <button onclick="toggleViewMode()" id="btn-mode-switch" class="btn-stage" title="Alternar: Rolagem / Slide / Leitura">
+                    <i class="fas fa-scroll"></i>
                 </button>
             </div>
             
-            <div class="control-section">
+            <div class="control-section" id="section-nav-controls">
                 <div id="controls-scroll">
                     <button onclick="toggleAutoScroll()" id="btn-scroll" class="btn-stage" title="Ligar Rolagem"><i class="fas fa-arrow-down"></i></button>
                     <input type="range" id="scroll-speed" min="1" max="10" value="3" onchange="saveSettings()" title="Velocidade">
@@ -171,6 +196,9 @@
                     <button onclick="prevSlide()" class="btn-nav-slide" title="Anterior"><i class="fas fa-chevron-left"></i></button>
                     <span id="slide-count" style="font-size:1.1rem; font-weight:bold; color:#fff; min-width:60px; text-align:center;">1/1</span>
                     <button onclick="nextSlide()" class="btn-nav-slide" title="Próximo"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div id="controls-reading" style="display:none; color:#888; font-size:0.7rem; text-transform:uppercase; font-weight:bold;">
+                    MODO LEITURA
                 </div>
             </div>
             
@@ -202,8 +230,9 @@
             chordsVisible: true
         };
 
-        let hino = null, letraOriginal = "", scrollInterval, playerType = null, ytPlayerObj = null;
-        const fontSizes = ['5vh', '7vh', '9vh', '12vh']; 
+        let hino = null, letraOriginal = "", letraLeitura = "", scrollInterval, playerType = null, ytPlayerObj = null;
+        
+        const fontSizes = ['4vh', '6vh', '8vh', '11vh']; 
 
         window.onload = () => {
             carregarHinoDoStorage();
@@ -226,7 +255,10 @@
             document.getElementById('song-title').innerText = hino.nome;
             document.getElementById('song-artist').innerText = hino.artista;
             document.getElementById('bpm-display').innerText = (hino.bpm || "--") + " BPM";
+            
             letraOriginal = hino.letra || "";
+            // Carrega a letra limpa se existir
+            letraLeitura = hino.letraLeitura || "";
             
             const tomSalvo = hino.tom ? hino.tom.toUpperCase() : "C";
             state.originalTomIndex = notas.indexOf(tomSalvo) === -1 ? 0 : notas.indexOf(tomSalvo);
@@ -238,55 +270,16 @@
             if(hino.bpm) iniciarMetronomo(hino.bpm);
         }
 
-        function exportarProPresenter() {
-            if (!hino) return;
-            let letraLimpa = letraOriginal.replace(/\[.*?\]/g, "");
-            let conteudoArquivo = `Title: ${hino.nome}\nArtist: ${hino.artista}\n\n`;
-            
-            if(letraLimpa.includes(MANUAL_SEPARATOR)) {
-                conteudoArquivo += letraLimpa; 
-            } else {
-                const linhas = letraLimpa.split('\n');
-                let blocoTemp = [];
-                linhas.forEach(linha => {
-                    if(linha.trim() !== "") {
-                        blocoTemp.push(linha.trim());
-                        if(blocoTemp.length >= MAX_LINES_AUTO) {
-                            conteudoArquivo += blocoTemp.join('\n') + "\n\n"; 
-                            blocoTemp = [];
-                        }
-                    } else if (blocoTemp.length > 0) {
-                        conteudoArquivo += blocoTemp.join('\n') + "\n\n";
-                        blocoTemp = [];
-                    }
-                });
-                if(blocoTemp.length > 0) conteudoArquivo += blocoTemp.join('\n');
-            }
-
-            const blob = new Blob([conteudoArquivo], { type: "text/plain;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${hino.nome.replace(/[^a-z0-9]/gi, '_').toUpperCase()}_ProPresenter.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
         function toggleCifras() {
             state.chordsVisible = !state.chordsVisible;
-            const container = document.getElementById('lyrics-area');
             const btnTxt = document.getElementById('txt-cifra-status');
             
-            // Adiciona classe ao container para controlar visibilidade via CSS
             if(state.chordsVisible) {
-                // Remove regra de display:none dos acordes
                 let styles = document.getElementById('dynamic-chord-style');
                 if(styles) styles.remove();
                 btnTxt.innerText = "CIFRAS ON";
                 btnTxt.style.color = "#fff";
             } else {
-                // Cria regra para esconder
                 let style = document.createElement('style');
                 style.id = 'dynamic-chord-style';
                 style.innerHTML = '.chord { display: none !important; }';
@@ -296,65 +289,88 @@
             }
         }
 
-        function renderizarSlide() {
-            const container = document.getElementById('lyrics-content');
-            const diff = state.tomIndex - state.originalTomIndex;
-            const size = fontSizes[state.fontIndex]; 
-
-            let blocos = [];
-            if (letraOriginal.includes(MANUAL_SEPARATOR)) {
-                blocos = letraOriginal.split(MANUAL_SEPARATOR).map(b => b.trim()).filter(b => b !== "");
-            } else {
-                const linhasBrutas = letraOriginal.split('\n');
-                let blocoTemp = [];
-                linhasBrutas.forEach((linha) => {
-                    if (linha.trim() !== "") {
-                        blocoTemp.push(linha);
-                        if (blocoTemp.length >= MAX_LINES_AUTO) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
-                    } else if (blocoTemp.length > 0) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
-                });
-                if (blocoTemp.length > 0) blocos.push(blocoTemp.join('\n'));
-            }
-
-            state.slidesTotal = blocos.length;
-            if(state.currentSlide >= state.slidesTotal) state.currentSlide = 0;
-
-            let html = "";
-            blocos.forEach((bloco, idx) => {
-                let linhas = bloco.split('\n');
-                let blocoHtml = "";
-                linhas.forEach(l => { blocoHtml += `<div>${processarLinha(l, diff)}</div>`; });
-                let active = idx === state.currentSlide ? 'active-slide' : '';
-                html += `<div class="slide-block ${active}" id="slide-${idx}"><div class="slide-text" style="font-size:${size}">${blocoHtml}</div></div>`;
-            });
-            container.innerHTML = html;
-            updateSlideCounter();
-            document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        function toggleViewMode() { 
+            if (state.viewMode === 'scroll') { state.viewMode = 'slide'; } 
+            else if (state.viewMode === 'slide') { state.viewMode = 'reading'; } 
+            else { state.viewMode = 'scroll'; }
+            saveSettings(); 
+            applySettings(); 
         }
 
-        function toggleViewMode() { state.viewMode = state.viewMode === 'scroll' ? 'slide' : 'scroll'; saveSettings(); applySettings(); }
         function applySettings() {
             const area = document.getElementById('lyrics-area');
             const btnMode = document.getElementById('btn-mode-switch');
             const ctrlScroll = document.getElementById('controls-scroll');
             const ctrlSlide = document.getElementById('controls-slide');
+            const ctrlReading = document.getElementById('controls-reading');
+            const btnCifras = document.getElementById('btn-cifras-toggle');
+            const bg = document.getElementById('bg-effect');
+
             if(scrollInterval) clearInterval(scrollInterval);
             scrollInterval = null;
             document.getElementById('btn-scroll').classList.remove('btn-active');
             
+            area.className = ''; 
+            
             if(state.viewMode === 'scroll') {
-                area.className = 'mode-scroll'; area.scrollTop = 0;
-                btnMode.innerHTML = '<i class="fas fa-scroll"></i>';
-                ctrlScroll.style.display = 'flex'; ctrlSlide.style.display = 'none';
+                area.classList.add('mode-scroll'); area.scrollTop = 0;
+                btnMode.innerHTML = '<i class="fas fa-scroll"></i>'; 
+                ctrlScroll.style.display = 'flex'; ctrlSlide.style.display = 'none'; ctrlReading.style.display = 'none';
+                btnCifras.style.visibility = 'visible'; bg.style.opacity = '1';
                 renderizarScroll();
-            } else {
-                area.className = 'mode-slide';
-                btnMode.innerHTML = '<i class="fas fa-tv"></i>';
-                ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'flex';
+            } else if (state.viewMode === 'slide') {
+                area.classList.add('mode-slide');
+                btnMode.innerHTML = '<i class="fas fa-tv"></i>'; 
+                ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'flex'; ctrlReading.style.display = 'none';
+                btnCifras.style.visibility = 'visible'; bg.style.opacity = '1';
                 state.currentSlide = 0; 
                 renderizarSlide();
+            } else if (state.viewMode === 'reading') {
+                area.classList.add('mode-reading');
+                btnMode.innerHTML = '<i class="fas fa-book-open"></i>';
+                ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'none'; ctrlReading.style.display = 'block';
+                btnCifras.style.visibility = 'hidden'; bg.style.opacity = '0';
+                renderizarLeitura();
             }
             document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        }
+
+        // --- MODO LEITURA (USANDO O CAMPO NOVO OU FALLBACK) ---
+        function renderizarLeitura() {
+            const container = document.getElementById('lyrics-content');
+            const readingSizes = ['1rem', '1.2rem', '1.5rem', '1.8rem'];
+            const size = readingSizes[state.fontIndex] || '1.2rem';
+            let html = `<div class="reading-container">`;
+
+            // SE EXISTIR LETRA DE LEITURA (NOVA), USA ELA DIRETO
+            if (letraLeitura && letraLeitura.trim() !== "") {
+                const linhas = letraLeitura.split('\n');
+                linhas.forEach(l => {
+                    if (l.trim() === "") {
+                        html += `<div class="reading-empty-line"></div>`; 
+                    } else {
+                        html += `<div class="reading-line" style="font-size:${size}">${l}</div>`;
+                    }
+                });
+            } else {
+                // FALLBACK: TENTA LIMPAR A LETRA ANTIGA SE NÃO HOUVER A NOVA
+                const linhas = letraOriginal.split('\n');
+                linhas.forEach(l => {
+                    if (l.includes(MANUAL_SEPARATOR)) return; 
+                    if (l.trim() === "") {
+                        html += `<div class="reading-empty-line"></div>`; 
+                    } else {
+                        // Remove cifras [C]
+                        let linhaLimpa = l.replace(/\[.*?\]/g, "").trim();
+                        if(linhaLimpa !== "") {
+                            html += `<div class="reading-line" style="font-size:${size}">${linhaLimpa}</div>`;
+                        }
+                    }
+                });
+            }
+            
+            html += `</div>`;
+            container.innerHTML = html;
         }
 
         function renderizarScroll() {
@@ -369,7 +385,38 @@
             });
             container.innerHTML = html;
             setTimeout(checkFocusLine, 100);
-            document.getElementById('current-tone').innerText = notas[state.tomIndex];
+        }
+
+        function renderizarSlide() {
+            const container = document.getElementById('lyrics-content');
+            const diff = state.tomIndex - state.originalTomIndex;
+            const size = fontSizes[state.fontIndex]; 
+            let blocos = [];
+            if (letraOriginal.includes(MANUAL_SEPARATOR)) {
+                blocos = letraOriginal.split(MANUAL_SEPARATOR).map(b => b.trim()).filter(b => b !== "");
+            } else {
+                const linhasBrutas = letraOriginal.split('\n');
+                let blocoTemp = [];
+                linhasBrutas.forEach((linha) => {
+                    if (linha.trim() !== "") {
+                        blocoTemp.push(linha);
+                        if (blocoTemp.length >= MAX_LINES_AUTO) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
+                    } else if (blocoTemp.length > 0) { blocos.push(blocoTemp.join('\n')); blocoTemp = []; }
+                });
+                if (blocoTemp.length > 0) blocos.push(blocoTemp.join('\n'));
+            }
+            state.slidesTotal = blocos.length;
+            if(state.currentSlide >= state.slidesTotal) state.currentSlide = 0;
+            let html = "";
+            blocos.forEach((bloco, idx) => {
+                let linhas = bloco.split('\n');
+                let blocoHtml = "";
+                linhas.forEach(l => { blocoHtml += `<div>${processarLinha(l, diff)}</div>`; });
+                let active = idx === state.currentSlide ? 'active-slide' : '';
+                html += `<div class="slide-block ${active}" id="slide-${idx}"><div class="slide-text" style="font-size:${size}">${blocoHtml}</div></div>`;
+            });
+            container.innerHTML = html;
+            updateSlideCounter();
         }
 
         function processarLinha(linha, diff) {
@@ -390,6 +437,7 @@
         }
         function updateSlideCounter() { document.getElementById('slide-count').innerText = `${state.currentSlide + 1}/${state.slidesTotal}`; }
         function toggleAutoScroll() {
+            if(state.viewMode !== 'scroll') return;
             const btn = document.getElementById('btn-scroll');
             const area = document.getElementById('lyrics-area');
             if(scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; btn.classList.remove('btn-active'); } 
@@ -409,8 +457,21 @@
         }
         function saveSettings() { localStorage.setItem('stage_viewMode', state.viewMode); localStorage.setItem('stage_fontIndex', state.fontIndex); localStorage.setItem('stage_scrollSpeed', document.getElementById('scroll-speed').value); }
         function updateSpeed() { state.scrollSpeed = document.getElementById('scroll-speed').value; saveSettings(); if(scrollInterval) { toggleAutoScroll(); toggleAutoScroll(); } }
-        function cycleFontSize() { state.fontIndex = (state.fontIndex + 1) % fontSizes.length; saveSettings(); state.viewMode === 'scroll' ? renderizarScroll() : renderizarSlide(); }
-        function mudarTom(d) { state.tomIndex = (state.tomIndex + d + 12) % 12; state.viewMode === 'scroll' ? renderizarScroll() : renderizarSlide(); }
+        
+        function cycleFontSize() { 
+            state.fontIndex = (state.fontIndex + 1) % fontSizes.length; 
+            saveSettings(); 
+            if(state.viewMode === 'scroll') renderizarScroll();
+            else if(state.viewMode === 'slide') renderizarSlide();
+            else renderizarLeitura();
+        }
+        function mudarTom(d) { 
+            state.tomIndex = (state.tomIndex + d + 12) % 12; 
+            if(state.viewMode === 'scroll') renderizarScroll();
+            else if(state.viewMode === 'slide') renderizarSlide();
+            else renderizarLeitura(); // Leitura não muda tom, mas pode ser chamada para renderizar se precisar
+        }
+        
         function carregarMidia() {
             if(hino.audioUrl) { playerType = 'audio'; const aud = document.getElementById('audio-player'); aud.src = hino.audioUrl; aud.ontimeupdate = updateProgress; aud.onended = () => document.querySelector('#btn-play-music i').className = "fas fa-redo"; } 
             else if (hino.videoID) { playerType = 'youtube'; if(!window.YT) { var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag); } else onYouTubeIframeAPIReady(); }

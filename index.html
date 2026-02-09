@@ -95,6 +95,17 @@
         #loop-range-fill {
             position: absolute; top: 0; height: 100%; background: rgba(0, 188, 212, 0.3); pointer-events: none; display: none;
         }
+
+        /* --- ESTILOS DO MENU DE MOVER --- */
+        .btn-move:hover { color: var(--primary-color); background: rgba(0, 188, 212, 0.1); }
+        
+        #lista-opcoes-mover .btn-config-item { 
+            padding: 12px 15px; font-size: 0.9rem; transition: 0.2s; text-align: left; 
+            width: 100%; display: flex; align-items: center; gap: 10px; 
+            border: none; background: #222; color: #fff; margin-bottom: 5px; 
+            border-radius: 6px; cursor: pointer; 
+        }
+        #lista-opcoes-mover .btn-config-item:hover { background: #333 !important; padding-left: 20px; }
     </style>
 </head>
 <body class="body-com-player">
@@ -241,6 +252,19 @@
             </div>
         </div>
 
+        <div id="modal-mover-hino" class="modal-overlay" style="z-index: 7000;">
+            <div class="modal-container" style="max-width: 400px; height: auto; max-height: 80vh;">
+                <header class="modal-header">
+                    <h2>ADICIONAR À PASTA</h2>
+                    <button onclick="fecharModalMover()" style="background:none; border:none; color:#888; font-size:24px; cursor:pointer;">&times;</button>
+                </header>
+                <div class="modal-body">
+                    <p style="color:#aaa; font-size:0.9rem; margin-bottom:15px; text-align:center;">Selecione para onde deseja mover esta música:</p>
+                    <div id="lista-opcoes-mover" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="modal-cadastro" class="modal-overlay">
             <div class="modal-container">
                 <header class="modal-header">
@@ -250,7 +274,8 @@
                 
                 <div class="modal-tabs">
                     <button class="tab-btn active" onclick="switchTab('tab-dados')">DADOS GERAIS</button>
-                    <button class="tab-btn" onclick="switchTab('tab-letra')">LETRA & CIFRA</button>
+                    <button class="tab-btn" onclick="switchTab('tab-letra')">CIFRA & PROJEÇÃO</button>
+                    <button class="tab-btn" onclick="switchTab('tab-leitura')">LETRA (LEITURA)</button>
                 </div>
 
                 <div class="modal-body">
@@ -282,15 +307,29 @@
                     <div id="tab-letra" class="tab-content">
                         <div class="form-group" style="height:100%; display:flex; flex-direction:column;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <label style="margin:0;">EDITOR DE LETRA</label>
+                                <label style="margin:0;">EDITOR TÉCNICO (COM MARCADORES)</label>
                                 <div class="editor-toolbar">
                                     <span class="tool-label"><i class="fas fa-music"></i> Transpor:</span>
                                     <button class="btn-tool" onclick="transporEditor(-1)" title="Baixar Meio Tom">- ½</button>
                                     <button class="btn-tool" onclick="transporEditor(1)" title="Subir Meio Tom">+ ½</button>
                                 </div>
                             </div>
-                            <textarea id="nova-letra" style="flex:1; min-height:300px; resize:vertical; font-family:monospace; line-height:1.5; font-size:1rem; white-space: pre;" placeholder="Cole a letra aqui. Coloque cifras entre colchetes, ex: [C] [Am7]"></textarea>
-                            <small style="color:#666; margin-top:5px;"><i class="fas fa-info-circle"></i> Use <b>---</b> para separar slides manualmente. Cifras devem estar entre <b>[ ]</b>.</small>
+                            <small style="color:#888; display:block; margin-bottom:5px;">
+                                Utilize este campo para <b>projeção no telão</b> e visualização com cifras. 
+                                Use <code>---</code> para quebras de slide e <code>[C]</code> para cifras.
+                            </small>
+                            <textarea id="nova-letra" style="flex:1; min-height:300px; resize:vertical; font-family:monospace; line-height:1.5; font-size:1rem; white-space: pre;" placeholder="Letra com separadores --- e cifras [C]"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="tab-leitura" class="tab-content">
+                        <div class="form-group" style="height:100%; display:flex; flex-direction:column;">
+                            <label style="margin-bottom:10px;">LETRA ORIGINAL (PARA LEITURA NO APP)</label>
+                            <small style="color:#888; display:block; margin-bottom:10px;">
+                                Cole aqui a letra <b>exatamente como ela é</b> (estrofes completas, sem <code>---</code> e sem cifras). 
+                                Esta versão será usada no "Modo Leitura" do celular.
+                            </small>
+                            <textarea id="nova-letra-leitura" style="flex:1; min-height:300px; resize:vertical; font-family:sans-serif; line-height:1.5; font-size:1rem; white-space: pre;" placeholder="Cole a letra limpa aqui..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -325,8 +364,7 @@
 
         let db, hinosData = {}, idEdicao = null, categoriasUsuario = {}, sortableInstance = null;
         let player, playlistAtual = [], indexAtual = 0, isShuffle = false, isRepeat = false, filtroAtual = 'todos';
-        
-        // VARIÁVEIS MODO ENSAIO
+        let idHinoParaMover = null; 
         let loopStart = null, loopEnd = null, isLooping = false;
         const notasMusicais = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -343,20 +381,20 @@
                 db = firebase.database().ref('usuarios/' + user.uid + '/repertorio');
                 db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(); });
                 firebase.database().ref(`usuarios/${user.uid}/configuracoes/categorias`).on('value', (snap) => {
-                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "santa ceia": { nome: "SANTA CEIA", fixada: true } };
+                    categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "celebracao": { nome: "CELEBRAÇÃO", fixada: true } };
                     renderizarAbas(); atualizarSelectCategorias();
                 });
                 if(localStorage.getItem('tema_cor')) mudarTema(localStorage.getItem('tema_cor'));
             } else { window.location.href = 'login.html'; }
         });
-        // --- MODO ENSAIO (Loop e Velocidade) ---
+
+        // --- MODO ENSAIO ---
         function toggleEnsaioPanel() {
             const p = document.getElementById('ensaio-panel');
             const btn = document.getElementById('btn-ensaio');
             if(p.style.display === 'block') { p.style.display = 'none'; btn.style.color = '#888'; }
             else { p.style.display = 'block'; btn.style.color = 'var(--primary-color)'; }
         }
-
         function marcarLoop(ponto) {
             const aud = document.getElementById('main-audio-player');
             let t = 0;
@@ -383,7 +421,6 @@
                 seekToTime(loopStart); showToast("Loop Ativado!");
             }
         }
-
         function limparLoop(silencioso = false) {
             loopStart = null; loopEnd = null; isLooping = false;
             document.getElementById('marker-a').style.display = 'none';
@@ -394,18 +431,14 @@
             mudarVelocidade(1); document.getElementById('playback-rate').value = "1";
             if(!silencioso) showToast("Loop limpo.");
         }
-
         function mudarVelocidade(r) {
             const aud = document.getElementById('main-audio-player');
             if(aud.src) aud.playbackRate = parseFloat(r);
             if(player && typeof player.setPlaybackRate === 'function') player.setPlaybackRate(parseFloat(r));
         }
-
         function checkLoop(t) { if(isLooping && loopEnd && t >= loopEnd) { seekToTime(loopStart); } }
         function getDuration() { const aud = document.getElementById('main-audio-player'); if(aud.src) return aud.duration; if(player && player.getDuration) return player.getDuration(); return 1; }
         function seekToTime(t) { const aud = document.getElementById('main-audio-player'); if(aud.src) aud.currentTime = t; else if(player) player.seekTo(t); }
-
-        // --- PLAYER DE ÁUDIO ---
         function ajustarVolume(val) { const at = document.getElementById('main-audio-player'); if(at) at.volume=val/100; if(player && player.setVolume) player.setVolume(val); }
         
         function tocarNoPlayer(id) {
@@ -442,8 +475,6 @@
                     setTimeout(() => { if(player) { player.loadVideoById(h.videoID); player.playVideo(); } }, 1000);
                 }
             }
-
-            // CONTROLE REMOTO: Envia para o Firebase
             const user = firebase.auth().currentUser;
             if(user) {
                 firebase.database().ref(`usuarios/${user.uid}/aoVivo`).set({
@@ -474,8 +505,11 @@
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            if(id === 'tab-dados') document.querySelectorAll('.tab-btn')[0].classList.add('active'); 
-            else document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            
+            const btns = document.querySelectorAll('.tab-btn');
+            if(id === 'tab-dados') btns[0].classList.add('active');
+            else if(id === 'tab-letra') btns[1].classList.add('active');
+            else if(id === 'tab-leitura') btns[2].classList.add('active');
         }
 
         function salvarEscalaAtual() {
@@ -499,7 +533,59 @@
         function limparSetlistGeral() { if (confirm("Limpar?")) { const u={}; Object.keys(hinosData).forEach(id=>{if(hinosData[id].setlist) u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${id}/setlist`]=false;}); firebase.database().ref().update(u).then(()=>{toggleConfig(); showToast("Limpo!");}); } }
         function compartilharEscala() { let t="*ESCALA*\n\n", c=1; Object.keys(hinosData).map(k=>hinosData[k]).filter(h=>h.setlist).sort((a,b)=>(a.ordem||0)-(b.ordem||0)).forEach(h=>{t+=`${c}. *${h.nome}* (${h.tom||'--'})\n`;c++}); window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`); }
         function renderizarAbas() { const c=document.getElementById('category-tabs'); c.innerHTML=`<button class="cat-btn active" onclick="filtrar('todos', this)">TODOS</button>`; Object.keys(categoriasUsuario).forEach(k=>{if(categoriasUsuario[k].fixada)c.innerHTML+=`<button class="cat-btn" onclick="filtrar('${k}', this)">${categoriasUsuario[k].nome}</button>`}); c.innerHTML+=`<button class="cat-btn" onclick="filtrar('setlist', this)">SETLIST</button>`; }
-        function renderizarHinos(f=filtroAtual) { if(sortableInstance){try{sortableInstance.destroy()}catch(e){} sortableInstance=null;} const l=document.getElementById('songList'); if(!l)return; l.innerHTML=''; playlistAtual=[]; let arr=Object.keys(hinosData).map(k=>({...hinosData[k], id:k})).sort((a,b)=>(a.ordem||0)-(b.ordem||0)); arr.forEach(h=>{ if(f==='todos'||f===h.categoria||(f==='setlist'&&h.setlist)) { playlistAtual.push(h); let hd=f==='setlist'?`<div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>`:''; l.innerHTML+=`<div class="song-card" data-id="${h.id}" onclick="tocarNoPlayer('${h.id}')">${hd}<div class="song-info"><div class="play-circle"><i class="fas fa-play"></i></div><div class="song-details"><h3>${h.nome}</h3><p>${h.artista} • <span>${h.tom||'--'}</span></p></div></div><div class="song-actions"><button class="action-btn btn-view" onclick="event.stopPropagation(); abrirTelaCheia('${h.id}')"><i class="fas fa-expand-alt"></i></button><button class="action-btn btn-edit" onclick="event.stopPropagation(); prepararEdicao('${h.id}')"><i class="fas fa-pen"></i></button><button class="action-btn btn-delete" onclick="event.stopPropagation(); excluirHino('${h.id}')"><i class="fas fa-trash"></i></button></div></div>`; } }); if(f==='setlist') sortableInstance = new Sortable(l, {animation:150, handle:'.drag-handle', onEnd: salvarOrdemSetlist}); }
+        
+        function renderizarHinos(f=filtroAtual) { 
+            if(sortableInstance){try{sortableInstance.destroy()}catch(e){} sortableInstance=null;} 
+            const l=document.getElementById('songList'); if(!l)return; 
+            l.innerHTML=''; playlistAtual=[]; 
+            let arr=Object.keys(hinosData).map(k=>({...hinosData[k], id:k})).sort((a,b)=>(a.ordem||0)-(b.ordem||0)); 
+            
+            arr.forEach(h=>{ 
+                if(f==='todos'||f===h.categoria||(f==='setlist'&&h.setlist)) { 
+                    playlistAtual.push(h); 
+                    let hd=f==='setlist'?`<div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>`:''; 
+                    l.innerHTML+=`
+                    <div class="song-card" data-id="${h.id}" onclick="tocarNoPlayer('${h.id}')">
+                        ${hd}
+                        <div class="song-info">
+                            <div class="play-circle"><i class="fas fa-play"></i></div>
+                            <div class="song-details"><h3>${h.nome}</h3><p>${h.artista} • <span>${h.tom||'--'}</span></p></div>
+                        </div>
+                        <div class="song-actions">
+                            <button class="action-btn btn-move" onclick="event.stopPropagation(); abrirModalMover('${h.id}')" title="Mover para Pasta"><i class="fas fa-folder-plus"></i></button>
+                            <button class="action-btn btn-view" onclick="event.stopPropagation(); abrirTelaCheia('${h.id}')" title="Telão"><i class="fas fa-expand-alt"></i></button>
+                            <button class="action-btn btn-edit" onclick="event.stopPropagation(); prepararEdicao('${h.id}')" title="Editar"><i class="fas fa-pen"></i></button>
+                            <button class="action-btn btn-delete" onclick="event.stopPropagation(); excluirHino('${h.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>`; 
+                } 
+            }); 
+            if(f==='setlist') sortableInstance = new Sortable(l, {animation:150, handle:'.drag-handle', onEnd: salvarOrdemSetlist}); 
+        }
+
+        // --- FUNÇÕES DE MOVER HINO ---
+        function abrirModalMover(id) {
+            idHinoParaMover = id;
+            const container = document.getElementById('lista-opcoes-mover');
+            container.innerHTML = ''; 
+            container.innerHTML += `<button onclick="salvarMovimentacao('')" class="btn-config-item" style="background:#333;"><i class="fas fa-archive" style="color:#888;"></i> REMOVER (Sem Pasta)</button><hr style="border:0; border-top:1px solid #333; width:100%; margin:5px 0;">`;
+            Object.keys(categoriasUsuario).forEach(key => {
+                const cat = categoriasUsuario[key];
+                const isAtual = hinosData[id].categoria === key;
+                const style = isAtual ? "border: 1px solid var(--primary-color);" : "";
+                const icon = isAtual ? "fa-check" : "fa-folder";
+                container.innerHTML += `<button onclick="salvarMovimentacao('${key}')" class="btn-config-item" style="${style}"><i class="fas ${icon}" style="color:var(--primary-color);"></i> ${cat.nome}</button>`;
+            });
+            document.getElementById('modal-mover-hino').style.display = 'flex';
+        }
+        function fecharModalMover() { document.getElementById('modal-mover-hino').style.display = 'none'; idHinoParaMover = null; }
+        function salvarMovimentacao(novaCategoria) {
+            if (!idHinoParaMover) return;
+            db.child(idHinoParaMover).update({ categoria: novaCategoria })
+                .then(() => { let nomeCat = novaCategoria && categoriasUsuario[novaCategoria] ? categoriasUsuario[novaCategoria].nome : "GERAL"; showToast(`Movido para: ${nomeCat}`); fecharModalMover(); })
+                .catch(error => { showToast("Erro ao mover: " + error.message, "error"); });
+        }
+
         function salvarOrdemSetlist() { const u={}; Array.from(document.getElementById('songList').children).forEach((c,i)=>u[c.dataset.id+'/ordem']=i); db.update(u); }
 
         function togglePlayPause() { 
@@ -512,7 +598,6 @@
         function seek(e) { const r=e.currentTarget.getBoundingClientRect(), p=(e.clientX-r.left)/r.width; const at=document.getElementById('main-audio-player'); if(at.src) at.currentTime=p*at.duration; else if(player) player.seekTo(p*player.getDuration()); }
         
         var tag=document.createElement('script'); tag.src="https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
-        // CONFIGURAÇÃO DO YOUTUBE COM ORIGEM CORRETA
         function onYouTubeIframeAPIReady() { 
             player=new YT.Player('yt-api-container', { 
                 height:'0', width:'0', 
@@ -530,13 +615,48 @@
 
         function fecharModal() { document.getElementById('modal-cadastro').style.display='none'; idEdicao=null; }
         function abrirModal() { switchTab('tab-dados'); document.getElementById('modal-cadastro').style.display='flex'; }
-        function prepararEdicao(id) { idEdicao=id; const h=hinosData[id]; document.getElementById('novo-nome').value=h.nome; document.getElementById('novo-artista').value=h.artista; document.getElementById('novo-tom').value=h.tom; document.getElementById('novo-bpm').value=h.bpm||""; document.getElementById('nova-categoria').value=h.categoria; document.getElementById('novo-video').value=h.videoID||""; document.getElementById('nova-letra').value=h.letra; document.getElementById('check-setlist').checked=h.setlist; abrirModal(); }
+        
+        function prepararEdicao(id) { 
+            idEdicao=id; const h=hinosData[id]; 
+            document.getElementById('novo-nome').value=h.nome; 
+            document.getElementById('novo-artista').value=h.artista; 
+            document.getElementById('novo-tom').value=h.tom; 
+            document.getElementById('novo-bpm').value=h.bpm||""; 
+            document.getElementById('nova-categoria').value=h.categoria; 
+            document.getElementById('novo-video').value=h.videoID||""; 
+            document.getElementById('nova-letra').value=h.letra;
+            // Carrega a letra de leitura se existir, senão deixa vazio
+            document.getElementById('nova-letra-leitura').value = h.letraLeitura || ""; 
+            document.getElementById('check-setlist').checked=h.setlist; 
+            abrirModal(); 
+        }
+
         async function salvarHino() {
             const btn=document.getElementById('btn-salvar-hino'); const af=document.getElementById('novo-audio').files[0]; const n=document.getElementById('novo-nome').value;
             if(!n){showToast("Nome obrigatório!","error");return;} btn.disabled=true; btn.innerText="PROCESSANDO...";
-            try { let u=""; if(af){const fd=new FormData(); fd.append('file',af); fd.append('upload_preset',UPLOAD_PRESET); showToast("Enviando áudio..."); const r=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd}); const d=await r.json(); u=d.secure_url;}
-            const h={nome:n.toUpperCase(), artista:document.getElementById('novo-artista').value, tom:document.getElementById('novo-tom').value.toUpperCase(), bpm:document.getElementById('novo-bpm').value, categoria:document.getElementById('nova-categoria').value, videoID:extrairID(document.getElementById('novo-video').value), audioUrl:u||(idEdicao&&hinosData[idEdicao].audioUrl?hinosData[idEdicao].audioUrl:""), letra:document.getElementById('nova-letra').value, setlist:document.getElementById('check-setlist').checked};
-            if(idEdicao) await db.child(idEdicao).update(h); else await db.push(h); fecharModal(); showToast("Salvo!"); } catch(e){showToast(e.message,"error");} finally{btn.disabled=false; btn.innerText="SALVAR";}
+            try { 
+                let u=""; 
+                if(af){
+                    const fd=new FormData(); fd.append('file',af); fd.append('upload_preset',UPLOAD_PRESET); 
+                    showToast("Enviando áudio..."); 
+                    const r=await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,{method:'POST',body:fd}); 
+                    const d=await r.json(); u=d.secure_url;
+                }
+                const h={
+                    nome:n.toUpperCase(), 
+                    artista:document.getElementById('novo-artista').value, 
+                    tom:document.getElementById('novo-tom').value.toUpperCase(), 
+                    bpm:document.getElementById('novo-bpm').value, 
+                    categoria:document.getElementById('nova-categoria').value, 
+                    videoID:extrairID(document.getElementById('novo-video').value), 
+                    audioUrl:u||(idEdicao&&hinosData[idEdicao].audioUrl?hinosData[idEdicao].audioUrl:""), 
+                    letra:document.getElementById('nova-letra').value, 
+                    // Salva o novo campo
+                    letraLeitura: document.getElementById('nova-letra-leitura').value,
+                    setlist:document.getElementById('check-setlist').checked
+                };
+                if(idEdicao) await db.child(idEdicao).update(h); else await db.push(h); fecharModal(); showToast("Salvo!"); 
+            } catch(e){showToast(e.message,"error");} finally{btn.disabled=false; btn.innerText="SALVAR";}
         }
         function extrairID(u){if(!u)return"";const m=u.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?)\??v?=?([^#&?]*)).*/);return(m&&m[7].length===11)?m[7]:u;}
         function proximaMusica(){indexAtual=isShuffle?Math.floor(Math.random()*playlistAtual.length):(indexAtual+1)%playlistAtual.length;tocarNoPlayer(playlistAtual[indexAtual].id);}
@@ -562,7 +682,4 @@
         function atualizarDisplayBPM(h){if(metronomoAtivo)toggleMetronomo();const d=document.getElementById('display-bpm');if(h&&h.bpm){d.innerText=h.bpm+" BPM";}else{d.innerText="-- BPM";}}
     </script>
 </body>
-
 </html>
-
-

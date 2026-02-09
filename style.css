@@ -299,3 +299,20 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px;
     .ensaio-controls { flex-direction: column; align-items: stretch; gap: 10px; }
     .ensaio-group { justify-content: space-between; padding: 10px 15px; }
 }
+/* Botão de Mover específico */
+.btn-move:hover {
+    color: var(--primary-color);
+    background: rgba(0, 188, 212, 0.1);
+}
+
+/* Ajuste para os botões dentro do modal de mover */
+#lista-opcoes-mover .btn-config-item {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+    transition: 0.2s;
+    text-align: left;
+}
+#lista-opcoes-mover .btn-config-item:hover {
+    background: #333 !important;
+    padding-left: 20px; /* Efeito de deslize */
+}
