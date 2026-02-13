@@ -150,7 +150,7 @@
         /* O botão de voltar precisa continuar clicável e visível */
         body.clean-interface .stage-header a.btn-stage {
             pointer-events: auto;
-            background: rgba(20, 20, 20, 0.7); /* Fundo sutil para contraste */
+            background: rgba(20, 20, 20, 0.7);
             backdrop-filter: blur(5px);
             width: 45px; height: 45px;
             display: flex; align-items: center; justify-content: center;
@@ -158,16 +158,32 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* Botão flutuante para SAIR do modo leitura (caso o usuário queira trocar de modo sem sair da tela) */
-        #btn-exit-reading {
+        /* NOVO: Botão de PLAY discreto no canto superior direito para o Modo Leitura */
+        #btn-play-reading {
             display: none; /* Escondido por padrão */
+            position: fixed; top: 20px; right: 30px;
+            background: rgba(20, 20, 20, 0.7);
+            backdrop-filter: blur(5px);
+            width: 45px; height: 45px;
+            border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; font-size: 1.2rem;
+            z-index: 5000; cursor: pointer; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        #btn-play-reading:hover { transform: scale(1.1); border-color: var(--primary-color); color: var(--primary-color); }
+        body.clean-interface #btn-play-reading { display: flex; } /* Aparece só no modo leitura */
+
+        /* Botão para SAIR do modo leitura no canto inferior direito */
+        #btn-exit-reading {
+            display: none; 
             position: fixed; bottom: 30px; right: 30px;
             background: rgba(20, 20, 20, 0.8); color: #fff;
             padding: 10px 20px; border-radius: 30px;
             border: 1px solid rgba(255,255,255,0.1);
             font-size: 0.8rem; font-weight: bold;
-            z-index: 5000; cursor: pointer;
+            z-index: 5000; cursor: pointer; transition: 0.2s;
         }
+        #btn-exit-reading:hover { border-color: #fff; }
         body.clean-interface #btn-exit-reading { display: block; }
 
         @media (max-width: 768px) {
@@ -176,6 +192,9 @@
             .mini-progress { width: 50px; }
             .tone-box b { font-size: 1.2rem; }
             .reading-container { padding: 0 10px; }
+            /* Ajustes Mobile dos botões novos */
+            #btn-play-reading { top: 15px; right: 15px; width: 38px; height: 38px; font-size: 1rem; }
+            #btn-exit-reading { bottom: 20px; right: 20px; padding: 10px 15px; font-size: 0.75rem; }
         }
     </style>
 </head>
@@ -203,6 +222,10 @@
                 </div>
             </div>
         </header>
+
+        <button id="btn-play-reading" onclick="toggleMusic()" title="Tocar / Pausar">
+            <i class="fas fa-play" id="reading-play-icon"></i>
+        </button>
 
         <div id="lyrics-area" class="mode-scroll">
             <div id="lyrics-content">Carregando...</div>
@@ -252,7 +275,7 @@
         </footer>
         
         <button id="btn-exit-reading" onclick="toggleViewMode()">
-            <i class="fas fa-eye"></i> SAIR DO MODO LEITURA
+            <i class="fas fa-eye"></i> SAIR DA LEITURA
         </button>
     </div>
 
@@ -349,9 +372,8 @@
             scrollInterval = null;
             document.getElementById('btn-scroll').classList.remove('btn-active');
             
-            // Reseta classes e estilos
             area.className = ''; 
-            document.body.classList.remove('clean-interface'); // Remove classe de limpeza por padrão
+            document.body.classList.remove('clean-interface');
 
             if(state.viewMode === 'scroll') {
                 area.classList.add('mode-scroll'); area.scrollTop = 0;
@@ -367,9 +389,7 @@
                 state.currentSlide = 0; 
                 renderizarSlide();
             } else if (state.viewMode === 'reading') {
-                // MODO LEITURA: ATIVA A LIMPEZA DA INTERFACE
                 document.body.classList.add('clean-interface');
-                
                 area.classList.add('mode-reading');
                 btnMode.innerHTML = '<i class="fas fa-book-open"></i>';
                 ctrlScroll.style.display = 'none'; ctrlSlide.style.display = 'none'; ctrlReading.style.display = 'block';
@@ -379,7 +399,6 @@
             document.getElementById('current-tone').innerText = notas[state.tomIndex];
         }
 
-        // --- MODO LEITURA ---
         function renderizarLeitura() {
             const container = document.getElementById('lyrics-content');
             const readingSizes = ['1rem', '1.2rem', '1.5rem', '1.8rem'];
@@ -409,7 +428,6 @@
                     }
                 });
             }
-            
             html += `</div>`;
             container.innerHTML = html;
         }
@@ -513,24 +531,84 @@
             else renderizarLeitura();
         }
         
+        // --- LÓGICA DE ÁUDIO E SINCRONIZAÇÃO DE ÍCONES ---
+        function updatePlayIcons(state) {
+            const icons = document.querySelectorAll('#btn-play-music i, #reading-play-icon');
+            icons.forEach(icon => {
+                icon.className = `fas fa-${state}`;
+            });
+        }
+
         function carregarMidia() {
-            if(hino.audioUrl) { playerType = 'audio'; const aud = document.getElementById('audio-player'); aud.src = hino.audioUrl; aud.ontimeupdate = updateProgress; aud.onended = () => document.querySelector('#btn-play-music i').className = "fas fa-redo"; } 
-            else if (hino.videoID) { playerType = 'youtube'; if(!window.YT) { var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag); } else onYouTubeIframeAPIReady(); }
+            if(hino.audioUrl) { 
+                playerType = 'audio'; 
+                const aud = document.getElementById('audio-player'); 
+                aud.src = hino.audioUrl; 
+                aud.ontimeupdate = updateProgress; 
+                aud.onended = () => updatePlayIcons('redo'); 
+            } 
+            else if (hino.videoID) { 
+                playerType = 'youtube'; 
+                if(!window.YT) { 
+                    var tag = document.createElement('script'); 
+                    tag.src = "https://www.youtube.com/iframe_api"; 
+                    document.head.appendChild(tag); 
+                } else {
+                    onYouTubeIframeAPIReady(); 
+                }
+            }
         }
-        function onYouTubeIframeAPIReady() { ytPlayerObj = new YT.Player('yt-player', { height:'0', width:'0', videoId:hino.videoID, events:{'onStateChange':onYtState} }); }
+        
+        function onYouTubeIframeAPIReady() { 
+            ytPlayerObj = new YT.Player('yt-player', { 
+                height:'0', width:'0', videoId:hino.videoID, events:{'onStateChange':onYtState} 
+            }); 
+        }
+        
         function toggleMusic() {
-            const icon = document.querySelector('#btn-play-music i');
-            if(playerType === 'audio') { const aud = document.getElementById('audio-player'); if(aud.ended) { aud.currentTime = 0; aud.play(); icon.className = "fas fa-pause"; } else if(aud.paused) { aud.play(); icon.className = "fas fa-pause"; } else { aud.pause(); icon.className = "fas fa-play"; } } 
-            else if (playerType === 'youtube' && ytPlayerObj) { const s = ytPlayerObj.getPlayerState(); if(s === 0) { ytPlayerObj.seekTo(0); ytPlayerObj.playVideo(); } else if(s === 1) ytPlayerObj.pauseVideo(); else ytPlayerObj.playVideo(); }
+            if(playerType === 'audio') { 
+                const aud = document.getElementById('audio-player'); 
+                if(aud.ended) { aud.currentTime = 0; aud.play(); updatePlayIcons('pause'); } 
+                else if(aud.paused) { aud.play(); updatePlayIcons('pause'); } 
+                else { aud.pause(); updatePlayIcons('play'); } 
+            } 
+            else if (playerType === 'youtube' && ytPlayerObj) { 
+                const s = ytPlayerObj.getPlayerState(); 
+                if(s === 0) { ytPlayerObj.seekTo(0); ytPlayerObj.playVideo(); } 
+                else if(s === 1) ytPlayerObj.pauseVideo(); 
+                else ytPlayerObj.playVideo(); 
+            }
         }
+        
         function updateProgress() {
             let cur=0, dur=0;
-            if(playerType === 'audio') { const a = document.getElementById('audio-player'); cur=a.currentTime; dur=a.duration; } else if(playerType==='youtube' && ytPlayerObj && ytPlayerObj.getCurrentTime) { cur=ytPlayerObj.getCurrentTime(); dur=ytPlayerObj.getDuration(); }
-            if(dur>0) { document.getElementById('progress-bar').style.width = ((cur/dur)*100) + "%"; document.getElementById('time-display').innerText = formatTime(cur) + " / " + formatTime(dur); }
+            if(playerType === 'audio') { 
+                const a = document.getElementById('audio-player'); 
+                cur=a.currentTime; dur=a.duration; 
+            } else if(playerType==='youtube' && ytPlayerObj && ytPlayerObj.getCurrentTime) { 
+                cur=ytPlayerObj.getCurrentTime(); dur=ytPlayerObj.getDuration(); 
+            }
+            if(dur>0) { 
+                document.getElementById('progress-bar').style.width = ((cur/dur)*100) + "%"; 
+                document.getElementById('time-display').innerText = formatTime(cur) + " / " + formatTime(dur); 
+            }
         }
+        
         setInterval(() => { if(playerType === 'youtube') updateProgress(); }, 1000);
-        function onYtState(e) { const icon = document.querySelector('#btn-play-music i'); if(e.data === 1) icon.className = "fas fa-pause"; else if (e.data === 0) icon.className = "fas fa-redo"; else icon.className = "fas fa-play"; }
-        function seekAudio(e) { const rect = e.currentTarget.getBoundingClientRect(); const perc = (e.clientX - rect.left) / rect.width; if(playerType === 'audio') document.getElementById('audio-player').currentTime = perc * document.getElementById('audio-player').duration; else if (playerType === 'youtube') ytPlayerObj.seekTo(perc * ytPlayerObj.getDuration()); }
+        
+        function onYtState(e) { 
+            if(e.data === 1) updatePlayIcons('pause'); 
+            else if (e.data === 0) updatePlayIcons('redo'); 
+            else updatePlayIcons('play'); 
+        }
+        
+        function seekAudio(e) { 
+            const rect = e.currentTarget.getBoundingClientRect(); 
+            const perc = (e.clientX - rect.left) / rect.width; 
+            if(playerType === 'audio') document.getElementById('audio-player').currentTime = perc * document.getElementById('audio-player').duration; 
+            else if (playerType === 'youtube') ytPlayerObj.seekTo(perc * ytPlayerObj.getDuration()); 
+        }
+        
         function formatTime(s) { const m=Math.floor(s/60), sec=Math.floor(s%60); return m+":"+(sec<10?"0"+sec:sec); }
         function iniciarMetronomo(bpm) { const ms = 60000 / bpm, luz = document.getElementById('visual-metronome'); setInterval(() => { luz.classList.add('flash'); setTimeout(()=>luz.classList.remove('flash'),100); }, ms); }
         
