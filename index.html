@@ -384,9 +384,12 @@
         }
 
         let db, hinosData = {}, idEdicao = null, categoriasUsuario = {}, sortableInstance = null;
-        let player, playlistAtual = [], indexAtual = 0, isShuffle = false, isRepeat = false, filtroAtual = 'todos';
+        
+        // NOVO: Lê a última pasta visitada salva no celular, se não achar abre em 'todos'
+        let player, playlistAtual = [], indexAtual = 0, isShuffle = false, isRepeat = false, filtroAtual = localStorage.getItem('filtro_harmonia') || 'todos'; 
+        
         let idHinoParaMover = null; 
-        let idExclusao = null; // Variável para controlar exclusão
+        let idExclusao = null; 
         let loopStart = null, loopEnd = null, isLooping = false;
         const notasMusicais = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -401,7 +404,7 @@
         firebase.auth().onAuthStateChanged((user) => {
             if (user) {
                 db = firebase.database().ref('usuarios/' + user.uid + '/repertorio');
-                db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(); });
+                db.on('value', (snapshot) => { hinosData = snapshot.val() || {}; renderizarHinos(filtroAtual); }); // Usa a memória na hora de renderizar a lista
                 firebase.database().ref(`usuarios/${user.uid}/configuracoes/categorias`).on('value', (snap) => {
                     categoriasUsuario = snap.val() || { "adoracao": { nome: "ADORAÇÃO", fixada: true }, "celebracao": { nome: "CELEBRAÇÃO", fixada: true } };
                     renderizarAbas(); atualizarSelectCategorias();
@@ -550,13 +553,32 @@
                 }); c.innerHTML = h;
             });
         }
-        function carregarEscala(id) { if(!confirm("Carregar?")) return; firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas/${id}`).once('value').then(s=>{ const e=s.val(); if(!e)return; const u={}; Object.keys(hinosData).forEach(k=>u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${k}/setlist`]=false); e.musicas.forEach(m=>{if(hinosData[m.id]) { u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/setlist`]=true; u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/ordem`]=m.ordem; }}); firebase.database().ref().update(u).then(()=>{showToast("Carregado!"); document.getElementById('modal-historico').style.display='none';}); }); }
+        function carregarEscala(id) { if(!confirm("Carregar?")) return; firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas/${id}`).once('value').then(s=>{ const e=s.val(); if(!e)return; const u={}; Object.keys(hinosData).forEach(k=>u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${k}/setlist`]=false); e.musicas.forEach(m=>{if(hinosData[m.id]) { u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/setlist`]=true; u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${m.id}/ordem`]=m.ordem; }}); firebase.database().ref().update(u).then(()=>{showToast("Carregado!"); document.getElementById('modal-historico').style.display='none'; filtrar('setlist'); }); }); }
         function excluirEscala(id) { if(confirm("Apagar?")) firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/escalas/${id}`).remove().then(()=>carregarListaHistorico()); }
         function limparSetlistGeral() { if (confirm("Limpar?")) { const u={}; Object.keys(hinosData).forEach(id=>{if(hinosData[id].setlist) u[`usuarios/${firebase.auth().currentUser.uid}/repertorio/${id}/setlist`]=false;}); firebase.database().ref().update(u).then(()=>{toggleConfig(); showToast("Limpo!");}); } }
         function compartilharEscala() { let t="*ESCALA*\n\n", c=1; Object.keys(hinosData).map(k=>hinosData[k]).filter(h=>h.setlist).sort((a,b)=>(a.ordem||0)-(b.ordem||0)).forEach(h=>{t+=`${c}. *${h.nome}* (${h.tom||'--'})\n`;c++}); window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`); }
-        function renderizarAbas() { const c=document.getElementById('category-tabs'); c.innerHTML=`<button class="cat-btn active" onclick="filtrar('todos', this)">TODOS</button>`; Object.keys(categoriasUsuario).forEach(k=>{if(categoriasUsuario[k].fixada)c.innerHTML+=`<button class="cat-btn" onclick="filtrar('${k}', this)">${categoriasUsuario[k].nome}</button>`}); c.innerHTML+=`<button class="cat-btn" onclick="filtrar('setlist', this)">SETLIST</button>`; }
         
-        // --- FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO (ATUALIZADA) ---
+        // NOVO: Função renderizarAbas constrói as abas já marcando quem está ativo com base na memória
+        function renderizarAbas() { 
+            const c=document.getElementById('category-tabs'); 
+            let html=`<button class="cat-btn ${filtroAtual === 'todos' ? 'active' : ''}" onclick="filtrar('todos')">TODOS</button>`; 
+            Object.keys(categoriasUsuario).forEach(k=>{
+                if(categoriasUsuario[k].fixada) {
+                    html+=`<button class="cat-btn ${filtroAtual === k ? 'active' : ''}" onclick="filtrar('${k}')">${categoriasUsuario[k].nome}</button>`;
+                }
+            }); 
+            html+=`<button class="cat-btn ${filtroAtual === 'setlist' ? 'active' : ''}" onclick="filtrar('setlist')">SETLIST</button>`; 
+            c.innerHTML = html;
+        }
+        
+        // NOVO: Função filtrar atualizada para guardar o clique na memória
+        function filtrar(c) {
+            filtroAtual = c;
+            localStorage.setItem('filtro_harmonia', c); // Salva no celular
+            renderizarAbas(); // Recria as abas para mostrar a correta em azul
+            renderizarHinos(c); // Desenha as músicas da pasta
+        }
+        
         function renderizarHinos(f=filtroAtual) { 
             if(sortableInstance){try{sortableInstance.destroy()}catch(e){} sortableInstance=null;} 
             const l=document.getElementById('songList'); if(!l)return; 
@@ -567,10 +589,8 @@
                 if(f==='todos'||f===h.categoria||(f==='setlist'&&h.setlist)) { 
                     playlistAtual.push(h); 
                     
-                    // Ícone do Drag (só aparece no modo setlist)
                     let hd=f==='setlist'?`<div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>`:''; 
 
-                    // Lógica do botão de Setlist (NOVA)
                     const inSetlist = h.setlist === true;
                     const iconSetlist = inSetlist ? 'fa-check-circle' : 'fa-plus-circle';
                     const colorSetlist = inSetlist ? 'var(--primary-color)' : '#666';
@@ -599,7 +619,6 @@
             if(f==='setlist') sortableInstance = new Sortable(l, {animation:150, handle:'.drag-handle', onEnd: salvarOrdemSetlist}); 
         }
 
-        // --- NOVA FUNÇÃO PARA ALTERNAR SETLIST RAPIDAMENTE ---
         function toggleSetlist(id) {
             const h = hinosData[id];
             const newState = !h.setlist;
@@ -694,7 +713,6 @@
             document.getElementById('nova-categoria').value=h.categoria; 
             document.getElementById('novo-video').value=h.videoID||""; 
             document.getElementById('nova-letra').value=h.letra;
-            // Carrega a letra de leitura se existir, senão deixa vazio
             document.getElementById('nova-letra-leitura').value = h.letraLeitura || ""; 
             document.getElementById('check-setlist').checked=h.setlist; 
             abrirModal(); 
@@ -720,7 +738,6 @@
                     videoID:extrairID(document.getElementById('novo-video').value), 
                     audioUrl:u||(idEdicao&&hinosData[idEdicao].audioUrl?hinosData[idEdicao].audioUrl:""), 
                     letra:document.getElementById('nova-letra').value, 
-                    // Salva o novo campo
                     letraLeitura: document.getElementById('nova-letra-leitura').value,
                     setlist:document.getElementById('check-setlist').checked
                 };
@@ -738,7 +755,6 @@
         function abrirModoPalcoPlayer(){window.location.href='hino.html';}
         function abrirTelaCheia(id){localStorage.setItem('hino_atual',JSON.stringify({...hinosData[id],id}));window.location.href='hino.html';}
         function buscar(){const t=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('.song-card').forEach(c=>c.style.display=c.innerText.toLowerCase().includes(t)?"flex":"none");}
-        function filtrar(c,b){filtroAtual=c;document.querySelectorAll('.cat-btn').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');renderizarHinos(c);}
         function abrirGerenciadorPlaylists(){document.getElementById('modal-playlists').style.display='flex';}
         function fecharGerenciador(){document.getElementById('modal-playlists').style.display='none';}
         function criarPlaylist(){const n=document.getElementById('nova-playlist-nome').value.toUpperCase();if(!n)return;firebase.database().ref(`usuarios/${firebase.auth().currentUser.uid}/configuracoes/categorias/cat_${Date.now()}`).set({nome:n,fixada:true}).then(()=>{showToast("Criada!");document.getElementById('nova-playlist-nome').value="";});}
